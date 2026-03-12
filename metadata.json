@@ -1,5 +1,5 @@
 {
-  "name": "ATS-Friendly Visual CV Generator",
-  "description": "Create visually stunning, ATS-readable resumes using AI.",
+  "name": "FlowAssist Career",
+  "description": "AI-powered CV ingestion, career profile analysis, roadmap generation, and structured PDF output.",
   "requestFramePermissions": []
 }
