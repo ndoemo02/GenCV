@@ -1,186 +1,157 @@
-import React, { useState, useRef } from 'react';
+﻿import React, { useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import {
-  Upload,
-  Plus,
-  Type,
-  Image as ImageIcon,
-  ChevronRight,
-  FileText,
-  ArrowRight
-} from 'lucide-react';
+import { ArrowRight, CircleHelp, FileText, Upload } from 'lucide-react';
+import type { Step1Submission, UploadedAsset } from '../types';
 
 interface Step1Props {
-  onSubmit: (
-    text: string,
-    photo: { base64: string; mimeType: string } | null,
-    sourceDoc: { base64: string; mimeType: string } | null
-  ) => void;
+  onSubmit: (payload: Step1Submission) => Promise<void> | void;
+  isBusy?: boolean;
 }
 
-const Spotlight = () => (
-  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-    {/* Top Beam */}
-    <div
-      className="absolute top-[-5%] left-1/2 -translate-x-1/2 w-[800px] h-[1000px] opacity-40 z-0"
-      style={{
-        background: 'conic-gradient(from 180deg at 50% 0%, transparent 160deg, white 180deg, transparent 200deg)',
-        filter: 'blur(80px)',
-      }}
-    />
+const examplePlaceholder = `Chce zmienic branze na sprzedaz\nCeluje w rynek niemiecki\nMam CV na spawacza ale chce isc w kierunku handlowca`;
 
-    {/* Floor Glow */}
-    <div className="absolute bottom-[30%] left-1/2 -translate-x-1/2 w-full max-w-[1000px] flex justify-center items-center">
-      <div className="w-[600px] h-[150px] rounded-[100%] bg-white/10 blur-[50px]" />
-      <div className="absolute w-[300px] h-[60px] rounded-[100%] bg-white/40 blur-[25px]" />
-      <div className="absolute w-[150px] h-[30px] rounded-[100%] bg-white/70 blur-[10px]" />
-    </div>
-  </div>
-);
+const readFile = (file: File): Promise<UploadedAsset> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Nie udalo sie odczytac pliku.'));
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      resolve({
+        name: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        base64: result.split(',')[1] || '',
+        size: file.size,
+      });
+    };
+    reader.readAsDataURL(file);
+  });
 
-export const Step1Input: React.FC<Step1Props> = ({ onSubmit }) => {
-  const [text, setText] = useState('');
-  const [photo, setPhoto] = useState<{ base64: string; mimeType: string } | null>(null);
-  const [sourceDoc, setSourceDoc] = useState<{ base64: string; mimeType: string } | null>(null);
+export const Step1Input: React.FC<Step1Props> = ({ onSubmit, isBusy = false }) => {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [sourceFile, setSourceFile] = useState<UploadedAsset | null>(null);
+  const [rawText, setRawText] = useState('');
+  const [additionalContext, setAdditionalContext] = useState('');
+  const [showHelp, setShowHelp] = useState(false);
 
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const docInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'photo' | 'doc') => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        const base64 = result.split(',')[1];
-        if (type === 'photo') {
-          setPhoto({ base64, mimeType: file.type });
-        } else {
-          setSourceDoc({ base64, mimeType: file.type });
-        }
-      };
-      reader.readAsDataURL(file);
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
     }
+
+    setSourceFile(await readFile(file));
   };
 
-  const handleSubmit = () => {
-    if (!text.trim() && !sourceDoc) return;
-    onSubmit(text, photo, sourceDoc);
+  const handleSubmit = async () => {
+    if (!sourceFile && !rawText.trim()) {
+      return;
+    }
+
+    await onSubmit({ sourceFile, rawText, additionalContext });
   };
 
   return (
-    <div className="w-full flex-grow flex flex-col items-center justify-center relative overflow-hidden">
-      {/* Background Grid */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808010_1px,transparent_1px),linear-gradient(to_bottom,#80808010_1px,transparent_1px)] bg-[size:60px_60px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
-
-      <Spotlight />
-
-      {/* Hero Section */}
-      <div className="relative z-10 perspective-1000 mb-12 flex flex-col items-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.5, ease: "easeOut" }}
-          className="flex flex-col items-center"
-        >
-          <h1
-            className="text-[120px] md:text-[220px] font-black tracking-[-0.05em] text-white leading-none mix-blend-difference"
-            style={{
-              textShadow: '0 0 40px rgba(255,255,255,0.4), 0 0 100px rgba(255,255,255,0.1)',
-            }}
-          >
-            CV
-          </h1>
-          <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-white/40 to-transparent -mt-6 blur-[1px]" />
-        </motion.div>
+    <div className="relative z-10 flex w-full max-w-5xl flex-col gap-6 px-4 pb-28 pt-6 sm:px-6 lg:px-8">
+      <div className="mb-2 flex flex-col items-center text-center">
+        <p className="font-mono text-[10px] uppercase tracking-[0.45em] text-zinc-600">Start</p>
+        <h1 className="mt-3 text-4xl font-black uppercase tracking-[-0.05em] text-white sm:text-6xl">FlowAssist Career</h1>
+        <p className="mt-4 max-w-2xl text-sm text-zinc-400 sm:text-base">
+          Szybkie wejscie do nowego CV i planu rozwoju. Najpierw zbieramy dane, potem budujemy profil, roadmapy i PDF.
+        </p>
       </div>
 
-      {/* Main Controls Overlay */}
-      <div className="relative z-20 w-full max-w-4xl px-6 grid grid-cols-1 md:grid-cols-3 gap-5">
-
-        {/* Source CV Button */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <motion.button
-          whileHover={{ scale: 1.02, y: -2 }}
-          onClick={() => docInputRef.current?.click()}
-          className="group relative bg-zinc-900/60 backdrop-blur-xl border border-white/10 p-6 rounded-[2rem] overflow-hidden transition-all hover:border-white/30 text-left"
+          whileHover={{ scale: 1.01, y: -2 }}
+          onClick={() => fileRef.current?.click()}
+          className="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-zinc-950/70 p-6 text-left backdrop-blur-2xl transition-all hover:border-white/25"
         >
-          <input type="file" ref={docInputRef} onChange={(e) => handleFileUpload(e, 'doc')} accept=".pdf,.doc,.docx,image/*" className="hidden" />
-          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          <div className="relative flex flex-col h-full justify-between gap-4">
-            <div className="w-12 h-12 bg-white/10 rounded-2xl text-white flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-              <Upload size={24} className={sourceDoc ? 'text-blue-400' : ''} />
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".pdf,.docx,.jpg,.jpeg,.png"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/8 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+          <div className="relative flex min-h-56 flex-col justify-between gap-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-white transition-transform duration-500 group-hover:scale-110">
+                <Upload size={26} />
+              </div>
+              <div className="rounded-full border border-white/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500">
+                PDF / DOCX / JPG / PNG
+              </div>
             </div>
+
             <div>
-              <h3 className="text-white font-bold text-sm tracking-tight">{sourceDoc ? 'Dokument gotowy' : 'Wczytaj stare CV'}</h3>
-              <p className="text-zinc-500 text-[10px] mt-0.5 uppercase tracking-widest font-mono">
-                {sourceDoc ? 'PLIK ZAŁADOWANY' : 'PDF, JPG, PNG'}
+              <h2 className="text-xl font-bold tracking-tight text-white">Upload CV</h2>
+              <p className="mt-2 text-sm text-zinc-400">
+                Jedno glowne miejsce wejscia dla dokumentu lub skanu CV. Zdjecie portretowe nie jest juz wymagane w pierwszym kroku.
               </p>
+            </div>
+
+            <div className="rounded-[1.5rem] border border-dashed border-white/10 bg-black/30 p-4 font-mono text-xs text-zinc-500">
+              {sourceFile ? `Zaladowano: ${sourceFile.name}` : 'Przeciagnij plik lub kliknij, aby dolaczyc aktualne CV.'}
             </div>
           </div>
         </motion.button>
 
-        {/* Text Input Block */}
-        <div className="md:col-span-1 group relative bg-zinc-900/60 backdrop-blur-xl border border-white/10 p-6 rounded-[2rem] overflow-hidden transition-all hover:border-white/20">
-          <div className="flex flex-col h-full gap-3">
-            <div className="flex justify-between items-center text-white/20 text-[9px] font-mono tracking-widest uppercase mb-1">
-              <span>DANE TEKSTOWE</span>
-              <span className={text.length > 0 ? 'text-white/60' : ''}>{text.length} B</span>
-            </div>
+        <div className="grid grid-cols-1 gap-4">
+          <div className="rounded-[2rem] border border-white/10 bg-zinc-950/70 p-5 backdrop-blur-2xl">
+            <label className="mb-3 block font-mono text-[10px] uppercase tracking-[0.35em] text-zinc-500">Dane tekstowe</label>
             <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Wklej tutaj treść profili, tekst CV lub notatki..."
-              className="flex-grow bg-transparent border-none p-0 text-[11px] text-zinc-400 placeholder-zinc-700 focus:outline-none focus:ring-0 resize-none font-mono leading-relaxed h-[80px]"
+              value={rawText}
+              onChange={(event) => setRawText(event.target.value)}
+              placeholder="Wklej fragment CV, profil LinkedIn lub szybki opis doswiadczenia."
+              className="h-36 w-full resize-none rounded-[1.5rem] border border-white/8 bg-black/30 px-4 py-4 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-white/20"
+            />
+          </div>
+
+          <div className="rounded-[2rem] border border-white/10 bg-zinc-950/70 p-5 backdrop-blur-2xl">
+            <label className="mb-3 block font-mono text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+              Dodatkowe informacje (opcjonalnie)
+            </label>
+            <textarea
+              value={additionalContext}
+              onChange={(event) => setAdditionalContext(event.target.value)}
+              placeholder={examplePlaceholder}
+              className="h-40 w-full resize-none rounded-[1.5rem] border border-white/8 bg-black/30 px-4 py-4 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-white/20"
             />
           </div>
         </div>
-
-        {/* Portrait / Photo Button */}
-        <motion.button
-          whileHover={{ scale: 1.02, y: -2 }}
-          onClick={() => photoInputRef.current?.click()}
-          className="group relative bg-zinc-900/60 backdrop-blur-xl border border-white/10 p-6 rounded-[2rem] overflow-hidden transition-all hover:border-white/30 text-left"
-        >
-          <input type="file" ref={photoInputRef} onChange={(e) => handleFileUpload(e, 'photo')} accept="image/*" className="hidden" />
-          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          <div className="relative flex flex-col h-full justify-between gap-4">
-            {photo ? (
-              <div className="w-12 h-12 rounded-2xl overflow-hidden border border-white/20 group-hover:scale-110 transition-transform duration-500">
-                <img src={`data:${photo.mimeType};base64,${photo.base64}`} alt="Preview" className="w-full h-full object-cover grayscale group-hover:grayscale-0" />
-              </div>
-            ) : (
-              <div className="w-12 h-12 bg-white/10 rounded-2xl text-white flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                <ImageIcon size={24} />
-              </div>
-            )}
-            <div>
-              <h3 className="text-white font-bold text-sm tracking-tight">{photo ? 'Wykryto portret' : 'Dodaj zdjęcie'}</h3>
-              <p className="text-zinc-500 text-[10px] mt-0.5 uppercase tracking-widest font-mono">KOMPONENT OPCJONALNY</p>
-            </div>
-          </div>
-        </motion.button>
       </div>
 
-      {/* Final Submit Action */}
-      <div className="relative z-20 mt-12 mb-12">
+      <div className="flex items-center justify-between gap-4">
+        <button
+          type="button"
+          onClick={() => setShowHelp((value) => !value)}
+          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300 transition hover:border-white/25 hover:text-white"
+        >
+          <CircleHelp size={16} /> Pomoc
+        </button>
+
         <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          disabled={!text.trim() && !sourceDoc}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          type="button"
+          disabled={isBusy || (!sourceFile && !rawText.trim())}
           onClick={handleSubmit}
-          className="group relative bg-white text-black px-12 py-5 rounded-full overflow-hidden transition-all shadow-[0_20px_60px_-10px_rgba(255,255,255,0.2)] disabled:opacity-10 disabled:grayscale disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-3 rounded-full bg-white px-6 py-3 text-sm font-black uppercase tracking-[0.22em] text-black transition disabled:cursor-not-allowed disabled:opacity-30"
         >
-          <span className="relative z-10 font-black text-sm tracking-widest uppercase flex items-center gap-3">
-            Rozpocznij proces <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform duration-500" />
-          </span>
-          <div className="absolute inset-0 bg-gradient-to-tr from-zinc-200 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          Analizuj profil <ArrowRight size={18} />
         </motion.button>
       </div>
 
-      {/* Disclaimer / System Log */}
-      <div className="relative z-20 text-[9px] font-mono tracking-[0.4em] text-zinc-600 uppercase opacity-50 px-10 text-center">
-        Protokół AI: Gemini_3.1_Pro_H-T // STATUS: CORE SYSTEM STABLE
-      </div>
+      {showHelp ? (
+        <div className="rounded-[1.75rem] border border-white/10 bg-black/50 p-4 text-sm text-zinc-400 backdrop-blur-xl">
+          <div className="mb-2 flex items-center gap-2 text-white">
+            <FileText size={16} />
+            <span className="font-semibold">Szybka wskazowka</span>
+          </div>
+          FlowAssist najlepiej dziala, gdy dolaczysz aktualne CV i dopiszesz kierunek zmiany, rynek lub docelowa role.
+        </div>
+      ) : null}
     </div>
   );
 };

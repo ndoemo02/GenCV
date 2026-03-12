@@ -1,142 +1,169 @@
-import React from 'react';
-import { motion } from 'motion/react';
-import { Download, RefreshCw, CheckCircle, ChevronRight, FileText, Layout } from 'lucide-react';
+﻿import React from 'react';
+import { Download, FileText, LineChart, Radar, RefreshCw, Route } from 'lucide-react';
+import type { WorkflowResult } from '../types';
 
 interface Step3Props {
-  pdfBytes: Uint8Array;
-  visualCvBase64: string;
+  result: WorkflowResult;
   onRestart: () => void;
 }
 
-const Spotlight = () => (
-  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-    <div
-      className="absolute top-[-5%] left-1/2 -translate-x-1/2 w-[800px] h-[1000px] opacity-40 z-0"
-      style={{
-        background: 'conic-gradient(from 180deg at 50% 0%, transparent 160deg, white 180deg, transparent 200deg)',
-        filter: 'blur(80px)',
-      }}
-    />
-    <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-full max-w-[1000px] flex justify-center items-center">
-      <div className="w-[500px] h-[120px] rounded-[100%] bg-white/10 blur-[50px]" />
-    </div>
-  </div>
-);
+const scoreTone = (score: number) => {
+  if (score >= 80) return 'text-emerald-300 border-emerald-400/30 bg-emerald-400/10';
+  if (score >= 60) return 'text-amber-200 border-amber-300/20 bg-amber-300/10';
+  return 'text-red-200 border-red-300/20 bg-red-300/10';
+};
 
-export const Step3Result: React.FC<Step3Props> = ({ pdfBytes, visualCvBase64, onRestart }) => {
-  const handleDownload = () => {
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+export const Step3Result: React.FC<Step3Props> = ({ result, onRestart }) => {
+  const downloadPdf = () => {
+    if (!result.artifacts.pdfBytes) {
+      return;
+    }
+
+    const blob = new Blob([result.artifacts.pdfBytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'FlowAssist_Career_CV.pdf';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'FlowAssist_Career_CV.pdf';
+    link.click();
     URL.revokeObjectURL(url);
   };
 
+  const cards = [
+    { label: 'gotowosc CV', value: result.analysis.readinessScore },
+    { label: 'potencjal rozwoju', value: result.analysis.growthPotential },
+    { label: 'klarownosc profilu', value: result.analysis.profileClarity },
+  ];
+
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center p-12 relative overflow-y-auto no-scrollbar font-sans selection:bg-white selection:text-black">
-      <Spotlight />
-
-      {/* Background Grid */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808010_1px,transparent_1px),linear-gradient(to_bottom,#80808010_1px,transparent_1px)] bg-[size:60px_60px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none" />
-
-      <div className="relative z-10 w-full max-w-5xl flex flex-col items-center animate-fade-in py-12">
-        <div className="text-center mb-16 relative z-10">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-16 h-16 bg-white text-black rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-[0_20px_40px_-10px_rgba(255,255,255,0.4)]"
-          >
-            <CheckCircle size={32} />
-          </motion.div>
-          <h2 className="text-[32px] md:text-[48px] font-black text-white leading-tight tracking-tighter uppercase">
-            Projekt ukończony
-          </h2>
-          <p className="text-zinc-600 text-[10px] uppercase tracking-[0.6em] font-mono mt-2">
-            Dokument wygenerowany pomyślnie
+    <div className="flex w-full max-w-6xl flex-col gap-6 px-4 pb-28 pt-6 sm:px-6 lg:px-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.45em] text-zinc-600">CV Result</p>
+          <h2 className="mt-2 text-3xl font-black uppercase tracking-[-0.04em] text-white sm:text-5xl">Nowe CV i profil kariery</h2>
+          <p className="mt-3 max-w-2xl text-sm text-zinc-400">
+            FlowAssist zbudowal strukturalne CV, ocenil profil i przygotowal trzy kierunki rozwoju bez zaleznosci od obrazkowego layoutu AI.
           </p>
         </div>
-
-        <div className="grid md:grid-cols-2 gap-16 items-center w-full relative z-10">
-          {/* Visual Showcase */}
-          <div className="perspective-1000 relative">
-            <motion.div
-              animate={{
-                rotateY: [-5, 5, -5],
-                y: [0, -10, 0]
-              }}
-              transition={{ repeat: Infinity, duration: 10, ease: "easeInOut" }}
-              className="bg-zinc-900/60 backdrop-blur-3xl border border-white/10 p-2 rounded-[3rem] shadow-2xl overflow-hidden group"
-            >
-              <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-              <div className="aspect-[3/4] w-full bg-black/40 rounded-[2.5rem] overflow-hidden border border-white/5 relative">
-                <img
-                  src={`data:image/png;base64,${visualCvBase64}`}
-                  alt="Visual CV Preview"
-                  className="w-full h-full object-contain grayscale-0 opacity-90 group-hover:opacity-100 transition-all duration-700"
-                  referrerPolicy="no-referrer"
-                />
-                {/* Glass reflections */}
-                <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.1)_0%,rgba(255,255,255,0)_50%)] pointer-events-none" />
-              </div>
-            </motion.div>
-            {/* Stage Reflection */}
-            <div className="absolute bottom-[-40px] left-1/2 -translate-x-1/2 w-[80%] h-[20px] bg-white/5 blur-[20px] rounded-[100%] pointer-events-none" />
-          </div>
-
-          <div className="flex flex-col gap-10">
-            <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 space-y-8 relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative">
-                <h3 className="text-white text-base font-bold tracking-tight mb-6">Specyfikacja Wyjściowa</h3>
-                <div className="space-y-6">
-                  <div className="flex items-start gap-5">
-                    <div className="w-10 h-10 bg-white/5 rounded-2xl flex items-center justify-center text-white/40 group-hover:bg-white/10 group-hover:text-white transition-all duration-500">
-                      <Layout size={18} />
-                    </div>
-                    <div>
-                      <p className="text-white font-bold text-sm tracking-tight">Format wizualny 2K</p>
-                      <p className="text-zinc-600 text-[10px] mt-1 uppercase tracking-widest font-mono">Renderowanie wysokiej rozdzielczości z zachowaniem spójności postaci.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-5">
-                    <div className="w-10 h-10 bg-white/5 rounded-2xl flex items-center justify-center text-white/40 group-hover:bg-white/10 group-hover:text-white transition-all duration-500">
-                      <FileText size={18} />
-                    </div>
-                    <div>
-                      <p className="text-white font-bold text-sm tracking-tight">Warstwa Invisible ATS</p>
-                      <p className="text-zinc-600 text-[10px] mt-1 uppercase tracking-widest font-mono">Zintegrowana mapa bitowa z metadanymi czytelnymi dla systemów HR.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleDownload}
-                className="w-full group relative bg-white text-black py-7 rounded-[2rem] overflow-hidden transition-all shadow-[0_20px_40px_-10px_rgba(255,255,255,0.2)]"
-              >
-                <div className="absolute inset-0 bg-gradient-to-tr from-zinc-200 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <span className="relative z-10 font-black text-sm tracking-widest uppercase flex items-center justify-center gap-3">
-                  Pobierz PDF <Download size={20} />
-                </span>
-              </motion.button>
-
-              <button
-                onClick={onRestart}
-                className="w-full flex items-center justify-center gap-3 py-6 text-zinc-600 hover:text-zinc-400 text-[10px] font-mono tracking-[0.4em] uppercase transition-all"
-              >
-                <RefreshCw size={14} /> Nowy Projekt
-              </button>
-            </div>
-          </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={downloadPdf}
+            className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-black"
+          >
+            Pobierz PDF <Download size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={onRestart}
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm uppercase tracking-[0.2em] text-zinc-300"
+          >
+            Nowy start <RefreshCw size={16} />
+          </button>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {cards.map((card) => (
+          <div key={card.label} className={`rounded-[1.6rem] border p-5 ${scoreTone(card.value)}`}>
+            <p className="font-mono text-[10px] uppercase tracking-[0.35em]">{card.label}</p>
+            <p className="mt-3 text-4xl font-black">{card.value}</p>
+            <p className="mt-2 text-sm opacity-80">Score liczony na podstawie kompletnosci danych, jasnosci narracji i dopasowania kompetencji.</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <section className="rounded-[2rem] border border-white/10 bg-zinc-950/75 p-6 backdrop-blur-2xl">
+          <div className="mb-5 flex items-center gap-3 text-white">
+            <FileText size={18} />
+            <h3 className="text-xl font-bold">Nowe CV</h3>
+          </div>
+          <p className="text-lg font-semibold text-white">{result.structuredCv.fullName}</p>
+          <p className="mt-1 text-sm text-zinc-400">{result.structuredCv.targetRole}</p>
+          <p className="mt-4 text-sm text-zinc-300">{result.structuredCv.summary}</p>
+          <div className="mt-6 space-y-5">
+            {result.structuredCv.sections.map((section) => (
+              <div key={section.title}>
+                <p className="font-mono text-[10px] uppercase tracking-[0.35em] text-zinc-500">{section.title}</p>
+                <ul className="mt-3 space-y-2 text-sm text-zinc-200">
+                  {section.items.map((item) => (
+                    <li key={item} className="rounded-2xl border border-white/6 bg-black/20 px-4 py-3">{item}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <div className="grid grid-cols-1 gap-4">
+          <section className="rounded-[2rem] border border-white/10 bg-zinc-950/75 p-6 backdrop-blur-2xl">
+            <div className="mb-4 flex items-center gap-3 text-white">
+              <Radar size={18} />
+              <h3 className="text-xl font-bold">Profil zawodowy</h3>
+            </div>
+            <div className="space-y-3 text-sm text-zinc-300">
+              <p><span className="text-zinc-500">Obecna rola:</span> {result.analysis.estimatedCurrentRole}</p>
+              <p><span className="text-zinc-500">Seniority:</span> {result.analysis.seniorityLevel}</p>
+              <p><span className="text-zinc-500">Najmocniejsze atuty:</span> {result.analysis.strongestSkills.join(', ')}</p>
+            </div>
+          </section>
+
+          <section className="rounded-[2rem] border border-white/10 bg-zinc-950/75 p-6 backdrop-blur-2xl">
+            <div className="mb-4 flex items-center gap-3 text-white">
+              <LineChart size={18} />
+              <h3 className="text-xl font-bold">Braki kompetencyjne</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {result.analysis.missingSkills.map((skill) => (
+                <span key={skill} className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-300">
+                  {skill}
+                </span>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-[2rem] border border-white/10 bg-zinc-950/75 p-6 backdrop-blur-2xl">
+            <div className="mb-4 flex items-center gap-3 text-white">
+              <Route size={18} />
+              <h3 className="text-xl font-bold">Mozliwe kierunki rozwoju</h3>
+            </div>
+            <div className="space-y-4">
+              {result.roadmaps.map((roadmap) => (
+                <div key={roadmap.id} className="rounded-[1.5rem] border border-white/6 bg-black/25 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="font-semibold capitalize text-white">{roadmap.variant}</p>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500">{roadmap.riskLevel}</span>
+                  </div>
+                  <p className="mt-2 text-sm text-zinc-200">{roadmap.targetRole}</p>
+                  <p className="mt-2 text-sm text-zinc-400">{roadmap.reasoning}</p>
+                  <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.28em] text-zinc-500">{roadmap.timeline}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section className="rounded-[2rem] border border-white/10 bg-zinc-950/75 p-6 backdrop-blur-2xl">
+          <h3 className="text-xl font-bold text-white">Plan dzialania</h3>
+          <ul className="mt-4 space-y-3 text-sm text-zinc-300">
+            {result.roadmaps[0]?.nextActions.map((action) => (
+              <li key={action} className="rounded-2xl border border-white/6 bg-black/20 px-4 py-3">{action}</li>
+            ))}
+          </ul>
+        </section>
+        <section className="rounded-[2rem] border border-white/10 bg-zinc-950/75 p-6 backdrop-blur-2xl">
+          <h3 className="text-xl font-bold text-white">Pobierz PDF</h3>
+          <p className="mt-3 text-sm text-zinc-400">Plik jest renderowany z danych strukturalnych i moze opcjonalnie zawierac warstwe ATS.</p>
+          <button
+            type="button"
+            onClick={downloadPdf}
+            className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm uppercase tracking-[0.2em] text-zinc-100"
+          >
+            Pobierz PDF <Download size={16} />
+          </button>
+        </section>
       </div>
     </div>
   );
