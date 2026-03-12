@@ -26,7 +26,7 @@ export const ResumeBuilder: React.FC = () => {
         </button>
       </header>
 
-      <main className="relative z-30 h-[calc(100vh-72px)] overflow-y-auto pb-24">
+      <main className="relative z-30 h-[calc(100vh-72px)] overflow-y-auto pb-[calc(5.8rem+env(safe-area-inset-bottom))]">
         {error ? (
           <div className="mx-4 mb-3 flex max-w-3xl items-start gap-3 rounded-2xl border border-red-300/25 bg-red-400/10 p-4 text-red-100 sm:mx-6 lg:mx-8">
             <AlertCircle size={18} className="mt-0.5 shrink-0" />
@@ -40,9 +40,9 @@ export const ResumeBuilder: React.FC = () => {
           </div>
         ) : null}
 
-        {activeTab === 'start' ? (
+        <div className={activeTab === 'start' ? 'block' : 'hidden'}>
           <StartTab isProcessing={processing.active} phase={processing.phase} label={processing.label} onSubmit={submitInput} />
-        ) : null}
+        </div>
         {activeTab === 'cv' ? <CvTab result={currentResult} onRestart={() => navigate('start')} /> : null}
         {activeTab === 'plan' ? <PlanTab result={currentResult} /> : null}
         {activeTab === 'profil' ? <ProfileTab result={currentResult} workspace={workspace} onOpenVersion={openVersion} /> : null}

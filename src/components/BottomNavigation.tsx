@@ -14,7 +14,7 @@ export const BottomNavigation: React.FC<{
   onNavigate: (tab: AppTab) => void;
 }> = ({ activeTab, onNavigate }) => (
   <nav className="fixed inset-x-0 bottom-0 z-50">
-    <div className="mx-auto flex w-full max-w-xl items-center justify-between border-t border-white/10 bg-black/48 px-2 py-1.5 backdrop-blur-xl">
+    <div className="mx-auto flex w-full max-w-xl items-center justify-between border-t border-white/10 bg-black/48 px-2 pt-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] backdrop-blur-xl">
       {items.map((item) => {
         const Icon = item.icon;
         const active = item.id === activeTab;

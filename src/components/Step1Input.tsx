@@ -8,7 +8,9 @@ interface Step1Props {
   isBusy?: boolean;
 }
 
-const examplePlaceholder = `Chce zmienic branze na sprzedaz\nCeluje w rynek niemiecki\nMam CV na spawacza ale chce isc w kierunku handlowca`;
+type AccordionSection = 'text' | 'context' | null;
+
+const examplePlaceholder = `Chce zmienic branze na sprzedaz\nCeluje w rynek niemiecki\nMam doswiadczenie jako spawacz i chce isc w kierunku handlowca`;
 
 const readFile = (file: File): Promise<UploadedAsset> =>
   new Promise((resolve, reject) => {
@@ -32,8 +34,8 @@ export const Step1Input: React.FC<Step1Props> = ({ onSubmit, isBusy = false }) =
   const [rawText, setRawText] = useState('');
   const [additionalContext, setAdditionalContext] = useState('');
   const [showHelp, setShowHelp] = useState(false);
-  const [textOpen, setTextOpen] = useState(false);
-  const [contextOpen, setContextOpen] = useState(false);
+  const [openSection, setOpenSection] = useState<AccordionSection>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -42,10 +44,12 @@ export const Step1Input: React.FC<Step1Props> = ({ onSubmit, isBusy = false }) =
     }
 
     setSourceFile(await readFile(file));
+    setIsDragOver(false);
   };
 
   const handleDrop = async (event: React.DragEvent<HTMLButtonElement>) => {
     event.preventDefault();
+    setIsDragOver(false);
     const file = event.dataTransfer.files?.[0];
     if (!file) {
       return;
@@ -62,14 +66,18 @@ export const Step1Input: React.FC<Step1Props> = ({ onSubmit, isBusy = false }) =
     await onSubmit({ sourceFile, rawText, additionalContext });
   };
 
+  const toggleSection = (section: Exclude<AccordionSection, null>) => {
+    setOpenSection((current) => (current === section ? null : section));
+  };
+
   return (
-    <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-3 px-4 pb-32 pt-2 sm:max-w-lg sm:px-6">
+    <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-3 px-4 pb-[calc(6.8rem+env(safe-area-inset-bottom))] pt-2 sm:max-w-lg sm:px-6">
       <input ref={fileRef} type="file" accept=".pdf,.docx,.jpg,.jpeg,.png" className="hidden" onChange={handleFileChange} />
 
-      <section className="flex flex-col items-center justify-center pt-3 text-center">
+      <section className="flex flex-col items-center justify-center pt-2 text-center">
         <div className="relative flex flex-col items-center">
           <div className="pointer-events-none absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/10 blur-3xl" />
-          <h1 className="relative text-[74px] font-semibold leading-none tracking-[-0.04em] text-white sm:text-[92px]">CV</h1>
+          <h1 className="relative text-[72px] font-semibold leading-none tracking-[-0.04em] text-white sm:text-[88px]">CV</h1>
           <div className="relative mt-2 h-[2px] w-40 bg-gradient-to-r from-transparent via-white/35 to-transparent blur-[1px]" />
           <div className="relative -mt-5 h-10 w-48 bg-gradient-to-b from-white/16 to-transparent opacity-40 blur-lg" />
         </div>
@@ -106,10 +114,17 @@ export const Step1Input: React.FC<Step1Props> = ({ onSubmit, isBusy = false }) =
       <section className="grid grid-cols-1 gap-2">
         <button
           type="button"
-          onDragOver={(event) => event.preventDefault()}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setIsDragOver(true);
+          }}
+          onDragEnter={() => setIsDragOver(true)}
+          onDragLeave={() => setIsDragOver(false)}
           onDrop={handleDrop}
           onClick={() => fileRef.current?.click()}
-          className="flex min-h-[88px] w-full items-center justify-center rounded-2xl border border-dashed border-white/20 bg-black/35 px-4 py-4 text-center"
+          className={`flex min-h-[88px] w-full items-center justify-center rounded-2xl border border-dashed px-4 py-4 text-center transition ${
+            isDragOver ? 'border-white/35 bg-black/45' : 'border-white/20 bg-black/35'
+          }`}
         >
           <p className="text-sm text-white/50">
             {sourceFile ? `Zaladowano: ${sourceFile.name}` : 'Przeciagnij CV tutaj lub kliknij, aby wybrac plik'}
@@ -117,15 +132,11 @@ export const Step1Input: React.FC<Step1Props> = ({ onSubmit, isBusy = false }) =
         </button>
 
         <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md">
-          <button
-            type="button"
-            onClick={() => setTextOpen((value) => !value)}
-            className="flex w-full items-center justify-between px-4 py-3 text-left"
-          >
+          <button type="button" onClick={() => toggleSection('text')} className="flex w-full items-center justify-between px-4 py-3 text-left">
             <span className="text-xs uppercase tracking-[0.24em] text-white/60">Dane tekstowe</span>
-            <ChevronDown size={16} className={`text-white/40 transition ${textOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown size={16} className={`text-white/40 transition ${openSection === 'text' ? 'rotate-180' : ''}`} />
           </button>
-          <div className={`grid transition-[grid-template-rows,opacity] duration-300 ${textOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-70'}`}>
+          <div className={`grid transition-[grid-template-rows,opacity] duration-300 ${openSection === 'text' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-70'}`}>
             <div className="overflow-hidden px-4 pb-4">
               <textarea
                 value={rawText}
@@ -138,15 +149,11 @@ export const Step1Input: React.FC<Step1Props> = ({ onSubmit, isBusy = false }) =
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md">
-          <button
-            type="button"
-            onClick={() => setContextOpen((value) => !value)}
-            className="flex w-full items-center justify-between px-4 py-3 text-left"
-          >
+          <button type="button" onClick={() => toggleSection('context')} className="flex w-full items-center justify-between px-4 py-3 text-left">
             <span className="text-xs uppercase tracking-[0.24em] text-white/60">Dodatkowe informacje (opcjonalnie)</span>
-            <ChevronDown size={16} className={`text-white/40 transition ${contextOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown size={16} className={`text-white/40 transition ${openSection === 'context' ? 'rotate-180' : ''}`} />
           </button>
-          <div className={`grid transition-[grid-template-rows,opacity] duration-300 ${contextOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-70'}`}>
+          <div className={`grid transition-[grid-template-rows,opacity] duration-300 ${openSection === 'context' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-70'}`}>
             <div className="overflow-hidden px-4 pb-4">
               <textarea
                 value={additionalContext}
@@ -159,7 +166,7 @@ export const Step1Input: React.FC<Step1Props> = ({ onSubmit, isBusy = false }) =
         </div>
       </section>
 
-      <section className="sticky bottom-[74px] z-20 mt-1 rounded-2xl border border-white/10 bg-black/45 p-3 backdrop-blur-md">
+      <section className="sticky bottom-[calc(4.3rem+env(safe-area-inset-bottom))] z-20 mt-1 rounded-2xl border border-white/10 bg-black/45 p-3 backdrop-blur-md">
         <motion.button
           whileTap={{ scale: 0.98 }}
           type="button"
@@ -174,13 +181,13 @@ export const Step1Input: React.FC<Step1Props> = ({ onSubmit, isBusy = false }) =
       <button
         type="button"
         onClick={() => setShowHelp((value) => !value)}
-        className="fixed bottom-[82px] right-4 z-30 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-white/60 backdrop-blur-md"
+        className="fixed bottom-[calc(4.8rem+env(safe-area-inset-bottom))] right-4 z-30 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-white/60 backdrop-blur-md"
       >
         <CircleHelp size={14} /> Pomoc
       </button>
 
       {showHelp ? (
-        <div className="fixed bottom-[130px] right-4 z-30 w-[240px] rounded-2xl border border-white/10 bg-black/55 p-3 text-sm text-white/60 backdrop-blur-md">
+        <div className="fixed bottom-[calc(8.2rem+env(safe-area-inset-bottom))] right-4 z-30 w-[240px] rounded-2xl border border-white/10 bg-black/55 p-3 text-sm text-white/60 backdrop-blur-md">
           Dodaj CV i dopisz docelowy kierunek. To wystarczy, aby wygenerowac profil, plan i PDF.
         </div>
       ) : null}
