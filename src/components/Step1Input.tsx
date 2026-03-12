@@ -1,6 +1,6 @@
 ﻿import React, { useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowRight, ChevronDown, ChevronRight, CircleHelp, Plus, Upload } from 'lucide-react';
+import { ArrowRight, ChevronDown, CircleHelp, Plus, Upload } from 'lucide-react';
 import type { Step1Submission, UploadedAsset } from '../types';
 
 interface Step1Props {
@@ -27,6 +27,48 @@ const readFile = (file: File): Promise<UploadedAsset> =>
     };
     reader.readAsDataURL(file);
   });
+
+const UploadModule: React.FC<{
+  sourceFile: UploadedAsset | null;
+  isDragOver: boolean;
+  onOpenDialog: () => void;
+  onDragOver: (event: React.DragEvent<HTMLButtonElement>) => void;
+  onDragEnter: () => void;
+  onDragLeave: () => void;
+  onDrop: (event: React.DragEvent<HTMLButtonElement>) => void;
+}> = ({ sourceFile, isDragOver, onOpenDialog, onDragOver, onDragEnter, onDragLeave, onDrop }) => (
+  <motion.button
+    whileHover={{ y: -1 }}
+    whileTap={{ scale: 0.995 }}
+    type="button"
+    onClick={onOpenDialog}
+    onDragOver={onDragOver}
+    onDragEnter={onDragEnter}
+    onDragLeave={onDragLeave}
+    onDrop={onDrop}
+    className="group flex w-full flex-col gap-4 rounded-2xl border border-white/10 bg-black/40 p-4 text-left backdrop-blur-md"
+  >
+    <div className="flex items-start gap-3">
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-white">
+        <Upload size={20} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xl font-semibold tracking-tight text-white">Wczytaj CV</p>
+        <p className="mt-0.5 text-sm text-white/60">PDF, DOCX, JPG, PNG</p>
+      </div>
+    </div>
+
+    <div
+      className={`flex min-h-[96px] items-center justify-center rounded-xl border border-dashed px-4 py-4 text-center transition ${
+        isDragOver ? 'border-white/35 bg-black/45' : 'border-white/20 bg-black/30'
+      }`}
+    >
+      <p className="text-sm text-white/50">
+        {sourceFile ? `Zaladowano: ${sourceFile.name}` : 'Przeciagnij CV tutaj lub kliknij, aby wybrac plik'}
+      </p>
+    </div>
+  </motion.button>
+);
 
 export const Step1Input: React.FC<Step1Props> = ({ onSubmit, isBusy = false }) => {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -85,22 +127,18 @@ export const Step1Input: React.FC<Step1Props> = ({ onSubmit, isBusy = false }) =
       </section>
 
       <section className="mt-1 flex flex-col gap-2">
-        <motion.button
-          whileHover={{ y: -1 }}
-          whileTap={{ scale: 0.995 }}
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-black/40 px-4 py-4 text-left backdrop-blur-md"
-        >
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-white">
-            <Upload size={20} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xl font-semibold tracking-tight text-white">Wczytaj CV</p>
-            <p className="mt-0.5 text-sm text-white/60">Importuj PDF, DOCX, JPG, PNG</p>
-          </div>
-          <ChevronRight size={18} className="text-white/40 transition group-hover:text-white/70" />
-        </motion.button>
+        <UploadModule
+          sourceFile={sourceFile}
+          isDragOver={isDragOver}
+          onOpenDialog={() => fileRef.current?.click()}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setIsDragOver(true);
+          }}
+          onDragEnter={() => setIsDragOver(true)}
+          onDragLeave={() => setIsDragOver(false)}
+          onDrop={handleDrop}
+        />
 
         <button
           type="button"
@@ -112,25 +150,6 @@ export const Step1Input: React.FC<Step1Props> = ({ onSubmit, isBusy = false }) =
       </section>
 
       <section className="grid grid-cols-1 gap-2">
-        <button
-          type="button"
-          onDragOver={(event) => {
-            event.preventDefault();
-            setIsDragOver(true);
-          }}
-          onDragEnter={() => setIsDragOver(true)}
-          onDragLeave={() => setIsDragOver(false)}
-          onDrop={handleDrop}
-          onClick={() => fileRef.current?.click()}
-          className={`flex min-h-[88px] w-full items-center justify-center rounded-2xl border border-dashed px-4 py-4 text-center transition ${
-            isDragOver ? 'border-white/35 bg-black/45' : 'border-white/20 bg-black/35'
-          }`}
-        >
-          <p className="text-sm text-white/50">
-            {sourceFile ? `Zaladowano: ${sourceFile.name}` : 'Przeciagnij CV tutaj lub kliknij, aby wybrac plik'}
-          </p>
-        </button>
-
         <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md">
           <button type="button" onClick={() => toggleSection('text')} className="flex w-full items-center justify-between px-4 py-3 text-left">
             <span className="text-xs uppercase tracking-[0.24em] text-white/60">Dane tekstowe</span>
