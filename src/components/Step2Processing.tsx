@@ -1,76 +1,92 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { FileText, Image as ImageIcon, Layout, FileCheck } from 'lucide-react';
 
 interface Step2Props {
   currentPhase: number;
 }
 
+const Spotlight = () => (
+  <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+    <div
+      className="absolute top-[-5%] left-1/2 -translate-x-1/2 w-[800px] h-[1000px] opacity-40 z-0"
+      style={{
+        background: 'conic-gradient(from 180deg at 50% 0%, transparent 160deg, white 180deg, transparent 200deg)',
+        filter: 'blur(80px)',
+      }}
+    />
+    <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-full max-w-[1000px] flex justify-center items-center">
+      <div className="w-[400px] h-[100px] rounded-[100%] bg-white/10 blur-[40px]" />
+    </div>
+  </div>
+);
+
 export const Step2Processing: React.FC<Step2Props> = ({ currentPhase }) => {
-  const phases = [
-    { id: 1, title: "Structuring Text", desc: "Gemini 3.1 Pro is extracting ATS-friendly data...", icon: FileText },
-    { id: 2, title: "Generating Headshot", desc: "Nano Banana 2 is creating your professional portrait...", icon: ImageIcon },
-    { id: 3, title: "Designing Layout", desc: "Nano Banana Pro is rendering the visual CV...", icon: Layout },
-    { id: 4, title: "Compiling PDF", desc: "Injecting invisible text layer for ATS systems...", icon: FileCheck },
-  ];
+  const [logs, setLogs] = useState<string[]>([]);
+
+  const phaseMessages: Record<number, string[]> = {
+    1: ["Inicjowanie procesora Gemini 3.1 Pro...", "Czytanie struktury dokumentu...", "Wykrywanie kompetencji kluczowych..."],
+    2: ["Uruchamianie silnika obrazu flash-image...", "Generowanie profesjonalnego portretu...", "Optymalizacja oświetlenia studyjnego..."],
+    3: ["Renderowanie układu graficznego w 2K...", "Nakładanie palety barw FlowAssist...", "Finalizacja warstwy wizualnej..."],
+    4: ["Budowanie pliku PDF...", "Wstrzykiwanie warstwy tekstowej ATS...", "Szyfrowanie i kompresja..."],
+  };
+
+  useEffect(() => {
+    const messages = phaseMessages[currentPhase] || [];
+    setLogs(prev => [...prev.slice(-10), ...messages]);
+  }, [currentPhase]);
 
   return (
-    <div className="max-w-2xl mx-auto w-full py-12">
-      <div className="text-center mb-12">
-        <h2 className="text-3xl font-bold text-white mb-4">Crafting Your Resume</h2>
-        <p className="text-zinc-400">Please wait while our AI models work their magic.</p>
-      </div>
+    <div className="w-full h-full flex flex-col items-center justify-center p-6 font-mono relative overflow-hidden">
+      <Spotlight />
 
-      <div className="space-y-6">
-        {phases.map((phase) => {
-          const Icon = phase.icon;
-          const isActive = currentPhase === phase.id;
-          const isDone = currentPhase > phase.id;
+      <div className="relative z-10 flex flex-col items-center w-full max-w-lg">
+        {/* Animated AI Core */}
+        <div className="relative mb-16">
+          <motion.div
+            animate={{
+              scale: [1, 1.1, 1],
+              opacity: [0.5, 1, 0.5]
+            }}
+            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+            className="w-32 h-32 rounded-full border border-white/20 flex items-center justify-center shadow-[0_0_50px_rgba(255,255,255,0.1)] bg-white/5 backdrop-blur-3xl"
+          >
+            <span className="text-4xl font-black text-white tracking-widest uppercase">AI</span>
+          </motion.div>
+          {/* Ring around AI core */}
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
+            className="absolute inset-[-10px] border border-dashed border-white/10 rounded-full"
+          />
+        </div>
 
-          return (
-            <motion.div 
-              key={phase.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: phase.id * 0.1 }}
-              className={`p-6 rounded-2xl border flex items-center gap-6 transition-all duration-500 ${
-                isActive ? 'bg-blue-900/20 border-blue-500/50 shadow-[0_0_30px_rgba(59,130,246,0.15)]' :
-                isDone ? 'bg-emerald-900/10 border-emerald-500/30' :
-                'bg-zinc-900/50 border-zinc-800/50 opacity-50'
-              }`}
-            >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${
-                isActive ? 'bg-blue-500/20 text-blue-400' :
-                isDone ? 'bg-emerald-500/20 text-emerald-400' :
-                'bg-zinc-800 text-zinc-500'
-              }`}>
-                <Icon className="w-6 h-6" />
+        <div className="w-full bg-zinc-900/60 border border-white/10 p-8 rounded-[2.5rem] backdrop-blur-2xl shadow-2xl overflow-hidden">
+          <div className="flex flex-col gap-3 min-h-[160px]">
+            {logs.map((log, i) => (
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                key={i}
+                className="flex items-center gap-4 py-0.5"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-white/20 shrink-0" />
+                <span className="text-[10px] md:text-[11px] text-zinc-400 uppercase tracking-widest font-mono">
+                  {log}
+                </span>
+              </motion.div>
+            ))}
+
+            <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-white uppercase tracking-[0.2em] font-mono">
+                  Faza {currentPhase}/4 Przetwarzanie
+                </span>
               </div>
-              
-              <div className="flex-1">
-                <h3 className={`text-lg font-medium mb-1 ${
-                  isActive ? 'text-blue-400' :
-                  isDone ? 'text-emerald-400' :
-                  'text-zinc-400'
-                }`}>{phase.title}</h3>
-                <p className="text-sm text-zinc-500">{phase.desc}</p>
-              </div>
-
-              {isActive && (
-                <div className="flex gap-1">
-                  <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="w-2 h-2 bg-blue-500 rounded-full" />
-                  <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-2 h-2 bg-blue-500 rounded-full" />
-                  <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-2 h-2 bg-blue-500 rounded-full" />
-                </div>
-              )}
-              {isDone && (
-                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                  <FileCheck className="w-4 h-4 text-emerald-400" />
-                </div>
-              )}
-            </motion.div>
-          );
-        })}
+              <span className="text-[10px] text-zinc-600 font-mono tracking-widest">GEMINI_3.1_PRO</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
