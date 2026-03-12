@@ -26,7 +26,7 @@ export const ResumeBuilder: React.FC = () => {
         </button>
       </header>
 
-      <main className="relative z-30 h-[calc(100vh-72px)] overflow-y-auto pb-20">
+      <main className="relative z-30 h-[calc(100vh-72px)] overflow-y-auto pb-24">
         {error ? (
           <div className="mx-4 mb-3 flex max-w-3xl items-start gap-3 rounded-2xl border border-red-300/25 bg-red-400/10 p-4 text-red-100 sm:mx-6 lg:mx-8">
             <AlertCircle size={18} className="mt-0.5 shrink-0" />
