@@ -1,12 +1,10 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 :root {
-  --spotlight-top: radial-gradient(ellipse 60% 80% at 50% 0%, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.05) 40%, transparent 80%);
-  --spotlight-bottom: radial-gradient(ellipse 50% 25% at 50% 100%, rgba(255, 255, 255, 0.15) 0%, transparent 80%);
-  --terminal-green: #00ff88;
-  --terminal-cyan: #00d4ff;
-  --terminal-purple: #a855f7;
-  --primary: #ffffff;
+  --terminal-bg-radial: radial-gradient(circle at 50% 36%, rgba(255, 255, 255, 0.08) 0%, rgba(0, 0, 0, 0.96) 48%, #000 100%);
+  --text-primary: rgba(255, 255, 255, 1);
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-tertiary: rgba(255, 255, 255, 0.3);
 }
 
 * {
@@ -19,7 +17,7 @@ body {
   padding: 0;
   font-family: 'Inter', system-ui, sans-serif;
   background: #000;
-  color: #fff;
+  color: var(--text-primary);
   overflow-x: hidden;
   height: 100vh;
 }
@@ -28,99 +26,22 @@ body {
   font-family: 'JetBrains Mono', monospace;
 }
 
-.terminal-border {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+.terminal-shell {
+  background: var(--terminal-bg-radial);
 }
 
-.upload-zone {
-  border: 2px dashed rgba(255, 255, 255, 0.2);
-  transition: all 0.3s ease;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.upload-zone:hover {
-  border-color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.typewriter {
-  overflow: hidden;
-  white-space: nowrap;
-  animation: typing 2s steps(40, end);
-}
-
-@keyframes typing {
-  from {
-    width: 0;
-  }
-
-  to {
-    width: 100%;
-  }
-}
-
-.pulse-dot {
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.3;
-  }
-}
-
-.nav-item-active {
-  position: relative;
-}
-
-.nav-item-active::after {
-  content: '';
-  position: absolute;
-  bottom: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
-  background: var(--terminal-cyan);
-  border-radius: 50%;
-}
-
-.grid-bg {
+.terminal-grid {
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 50px 50px;
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 52px 52px;
 }
 
-.scan-sweep {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--terminal-cyan), transparent);
-  animation: scan 3s linear infinite;
-  opacity: 0.5;
-  z-index: 20;
-}
-
-@keyframes scan {
-  0% {
-    transform: translateY(0);
-  }
-
-  100% {
-    transform: translateY(100vh);
-  }
+.terminal-noise {
+  opacity: 0.04;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.7) 0.7px, transparent 0.7px);
+  background-size: 3px 3px;
+  pointer-events: none;
 }
 
 .perspective-1000 {
@@ -143,7 +64,6 @@ body {
   animation: spotlight 2s ease .75s 1 forwards;
 }
 
-/* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -159,9 +79,4 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
-}
-
-/* Maintain some backward compatibility for old scan animations */
-.scan-sweep {
-  box-shadow: 0 0 10px var(--terminal-cyan);
 }
