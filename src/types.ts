@@ -1,4 +1,4 @@
-﻿export type AppTab = 'start' | 'cv' | 'plan' | 'profil';
+export type AppTab = 'start' | 'cv' | 'plan' | 'profil';
 
 export type IngestionSource = 'pdf' | 'docx' | 'image' | 'text';
 
@@ -30,6 +30,30 @@ export interface EducationEntry {
   endDate?: string;
 }
 
+export interface ParsedCvSectionExperience {
+  company?: string;
+  role?: string;
+  description?: string;
+  start?: string;
+  end?: string;
+}
+
+export interface ParsedCvSectionEducation {
+  school?: string;
+  degree?: string;
+  start?: string;
+  end?: string;
+}
+
+export interface ParsedCvSections {
+  profileSummary: string;
+  experience: ParsedCvSectionExperience[];
+  skills: string[];
+  education: ParsedCvSectionEducation[];
+  languages: string[];
+  courses: string[];
+}
+
 export interface NormalizedCvSchema {
   language: string;
   fullName: string;
@@ -42,26 +66,45 @@ export interface NormalizedCvSchema {
   certifications: string[];
 }
 
+export interface StructuredCVPersonal {
+  name?: string;
+  title?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+}
+
+export interface StructuredCVExperienceEntry {
+  company?: string;
+  role?: string;
+  description?: string;
+  start?: string;
+  end?: string;
+}
+
+export interface StructuredCVEducationEntry {
+  school?: string;
+  degree?: string;
+  start?: string;
+  end?: string;
+}
+
+export interface StructuredCV {
+  personal?: StructuredCVPersonal;
+  summary?: string;
+  skills?: string[];
+  experience?: StructuredCVExperienceEntry[];
+  education?: StructuredCVEducationEntry[];
+}
+
+export type StructuredCvDocument = StructuredCV;
+
 export interface IngestionResult {
   source: IngestionSource;
   rawText: string;
   normalizedCv: NormalizedCvSchema;
   confidence: number;
   warnings: string[];
-}
-
-export interface StructuredCvSection {
-  title: string;
-  items: string[];
-}
-
-export interface StructuredCvDocument {
-  fullName: string;
-  targetRole: string;
-  summary: string;
-  contactLine: string;
-  sections: StructuredCvSection[];
-  atsKeywords: string[];
 }
 
 export type RoadmapVariant = 'conservative' | 'ambitious' | 'pivot';
@@ -103,7 +146,7 @@ export interface GeneratedCvVersion {
   profileId: string;
   createdAt: string;
   source: IngestionSource;
-  structuredCv: StructuredCvDocument;
+  structuredCv: StructuredCV;
   analysis: CareerAnalysis;
   ingestion: IngestionResult;
 }
@@ -129,7 +172,7 @@ export interface BuildArtifacts {
 export interface WorkflowResult {
   profile: CareerProfile;
   ingestion: IngestionResult;
-  structuredCv: StructuredCvDocument;
+  structuredCv: StructuredCV;
   analysis: CareerAnalysis;
   roadmaps: CareerRoadmap[];
   version: GeneratedCvVersion;

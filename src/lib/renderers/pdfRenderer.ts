@@ -1,8 +1,16 @@
-﻿import fontkit from '@pdf-lib/fontkit';
+import fontkit from '@pdf-lib/fontkit';
 import { PDFDocument, rgb } from 'pdf-lib';
 import regularFontUrl from '../../assets/fonts/Arial-Regular.ttf';
 import boldFontUrl from '../../assets/fonts/Arial-Bold.ttf';
-import type { StructuredCvDocument } from '../../types';
+import type { StructuredCV } from '../../types';
+import {
+  getStructuredCvAtsKeywords,
+  getStructuredCvContactLine,
+  getStructuredCvDisplayName,
+  getStructuredCvDisplaySections,
+  getStructuredCvDisplayTitle,
+} from '../cv/structured';
+import { logPipeline } from '../debug/pipeline';
 
 interface PdfRendererOptions {
   includeAtsLayer?: boolean;
@@ -42,9 +50,10 @@ const loadFontBytes = async (fontUrl: string) => {
 };
 
 export const renderStructuredPdf = async (
-  document: StructuredCvDocument,
+  document: StructuredCV,
   options: PdfRendererOptions = {},
 ): Promise<Uint8Array> => {
+  const renderStartedAt = performance.now();
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
 
@@ -56,22 +65,27 @@ export const renderStructuredPdf = async (
   const page = pdfDoc.addPage([595.28, 841.89]);
   const font = await pdfDoc.embedFont(regularFontBytes, { subset: true });
   const bold = await pdfDoc.embedFont(boldFontBytes, { subset: true });
+  const displaySections = getStructuredCvDisplaySections(document);
+  const fullName = getStructuredCvDisplayName(document);
+  const title = getStructuredCvDisplayTitle(document);
+  const contactLine = getStructuredCvContactLine(document) || 'FlowAssist Career';
+  const atsKeywords = getStructuredCvAtsKeywords(document);
 
   page.drawRectangle({ x: 0, y: 0, width: page.getWidth(), height: page.getHeight(), color: rgb(0.04, 0.05, 0.07) });
   page.drawRectangle({ x: 36, y: 36, width: page.getWidth() - 72, height: page.getHeight() - 72, borderColor: rgb(0.25, 0.25, 0.3), borderWidth: 1 });
-  page.drawText(document.fullName, { x: 56, y: 780, size: 24, font: bold, color: rgb(0.95, 0.95, 0.95) });
-  page.drawText(document.targetRole, { x: 56, y: 754, size: 12, font, color: rgb(0.65, 0.67, 0.72) });
-  page.drawText(document.contactLine || 'FlowAssist Career', { x: 56, y: 736, size: 10, font, color: rgb(0.78, 0.8, 0.84) });
+  page.drawText(fullName, { x: 56, y: 780, size: 24, font: bold, color: rgb(0.95, 0.95, 0.95) });
+  page.drawText(title, { x: 56, y: 754, size: 12, font, color: rgb(0.65, 0.67, 0.72) });
+  page.drawText(contactLine, { x: 56, y: 736, size: 10, font, color: rgb(0.78, 0.8, 0.84) });
 
   let cursorY = 700;
-  for (const line of wrapText(document.summary, 80)) {
+  for (const line of wrapText(document.summary || 'Profil kandydata wymaga uzupelnienia.', 80)) {
     page.drawText(line, { x: 56, y: cursorY, size: 10, font, color: rgb(0.88, 0.88, 0.9) });
     cursorY -= 14;
   }
 
   cursorY -= 10;
 
-  for (const section of document.sections) {
+  for (const section of displaySections) {
     page.drawText(section.title.toUpperCase(), { x: 56, y: cursorY, size: 11, font: bold, color: rgb(0.96, 0.96, 0.96) });
     cursorY -= 18;
 
@@ -89,8 +103,8 @@ export const renderStructuredPdf = async (
     }
   }
 
-  if (options.includeAtsLayer) {
-    page.drawText(document.atsKeywords.join(' | '), {
+  if (options.includeAtsLayer && atsKeywords.length) {
+    page.drawText(atsKeywords.join(' | '), {
       x: 20,
       y: 20,
       size: 8,
@@ -100,5 +114,9 @@ export const renderStructuredPdf = async (
     });
   }
 
-  return pdfDoc.save();
+  const pdfBytes = await pdfDoc.save();
+  logPipeline('pdf_render', {
+    pdf_render_time: Math.round(performance.now() - renderStartedAt),
+  });
+  return pdfBytes;
 };

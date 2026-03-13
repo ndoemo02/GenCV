@@ -1,4 +1,4 @@
-﻿import React, { createContext, startTransition, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, startTransition, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   AppTab,
   CareerAnalysis,
@@ -14,6 +14,7 @@ import { loadWorkspace, saveWorkspace } from '../lib/persistence/storage';
 import { routeIngestion } from '../lib/ingestion/router';
 import { generateCareerAnalysis, generateCareerRoadmaps, generateStructuredCv, toCareerProfile } from '../services/aiService';
 import { compileATSFriendlyPDF } from '../services/pdfService';
+import { getStructuredCvDisplayName } from '../lib/cv/structured';
 
 interface ProcessingState {
   active: boolean;
@@ -56,11 +57,18 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [currentResult, setCurrentResult] = useState<WorkflowResult | null>(null);
   const [processing, setProcessing] = useState<ProcessingState>(emptyProcessing);
   const [error, setError] = useState<string | null>(null);
+  const activeTabRef = useRef(activeTab);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
 
   useEffect(() => {
     const onHashChange = () => {
       const next = getTabFromHash(window.location.hash);
-      setActiveTab(next);
+      if (next !== activeTabRef.current) {
+        setActiveTab(next);
+      }
       persistTab(next);
     };
 
@@ -77,8 +85,17 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [workspace]);
 
   const navigate = (tab: AppTab) => {
+    const nextHash = getTabHash(tab);
+    if (tab === activeTabRef.current && window.location.hash === nextHash) {
+      return;
+    }
+
     persistTab(tab);
-    window.location.hash = getTabHash(tab);
+    if (window.location.hash !== nextHash) {
+      window.location.hash = nextHash;
+      return;
+    }
+
     setActiveTab(tab);
   };
 
@@ -143,7 +160,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const pdfBytes = await compileATSFriendlyPDF(version.structuredCv, true);
     const profile = workspace.profile ?? {
       id: version.profileId,
-      fullName: version.structuredCv.fullName,
+      fullName: getStructuredCvDisplayName(version.structuredCv),
       currentRole: version.analysis.estimatedCurrentRole,
       seniorityLevel: version.analysis.seniorityLevel,
       strongestSkills: version.analysis.strongestSkills,

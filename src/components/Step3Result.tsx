@@ -1,6 +1,7 @@
-﻿import React from 'react';
+import React from 'react';
 import { Download, FileText, LineChart, Radar, RefreshCw, Route } from 'lucide-react';
 import type { WorkflowResult } from '../types';
+import { getStructuredCvDisplayName, getStructuredCvDisplaySections, getStructuredCvDisplayTitle } from '../lib/cv/structured';
 
 interface Step3Props {
   result: WorkflowResult;
@@ -33,6 +34,10 @@ export const Step3Result: React.FC<Step3Props> = ({ result, onRestart }) => {
     { label: 'potencjal rozwoju', value: result.analysis.growthPotential },
     { label: 'klarownosc profilu', value: result.analysis.profileClarity },
   ];
+
+  const displaySections = getStructuredCvDisplaySections(result.structuredCv);
+  const fullName = getStructuredCvDisplayName(result.structuredCv);
+  const title = getStructuredCvDisplayTitle(result.structuredCv);
 
   return (
     <div className="flex w-full max-w-6xl flex-col gap-6 px-4 pb-28 pt-6 sm:px-6 lg:px-8">
@@ -78,16 +83,16 @@ export const Step3Result: React.FC<Step3Props> = ({ result, onRestart }) => {
             <FileText size={18} />
             <h3 className="text-xl font-bold">Nowe CV</h3>
           </div>
-          <p className="text-lg font-semibold text-white">{result.structuredCv.fullName}</p>
-          <p className="mt-1 text-sm text-zinc-400">{result.structuredCv.targetRole}</p>
+          <p className="text-lg font-semibold text-white">{fullName}</p>
+          <p className="mt-1 text-sm text-zinc-400">{title}</p>
           <p className="mt-4 text-sm text-zinc-300">{result.structuredCv.summary}</p>
           <div className="mt-6 space-y-5">
-            {result.structuredCv.sections.map((section) => (
+            {displaySections.map((section) => (
               <div key={section.title}>
                 <p className="font-mono text-[10px] uppercase tracking-[0.35em] text-zinc-500">{section.title}</p>
                 <ul className="mt-3 space-y-2 text-sm text-zinc-200">
                   {section.items.map((item) => (
-                    <li key={item} className="rounded-2xl border border-white/6 bg-black/20 px-4 py-3">{item}</li>
+                    <li key={`${section.title}-${item}`} className="rounded-2xl border border-white/6 bg-black/20 px-4 py-3">{item}</li>
                   ))}
                 </ul>
               </div>

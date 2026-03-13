@@ -1,87 +1,98 @@
-﻿import { Type, ThinkingLevel } from '@google/genai';
+import { Type, ThinkingLevel } from '@google/genai';
 import type {
   CareerAnalysis,
   CareerRoadmap,
   IngestionResult,
   NormalizedCvSchema,
-  StructuredCvDocument,
+  StructuredCV,
   UploadedAsset,
 } from '../types';
 import { getGeminiClient, hasGeminiKey } from '../lib/gemini/client';
 import { computeCareerIntelligence } from '../lib/career/intelligence';
+import { buildStructuredCvFromNormalized, countStructuredSections, validateStructuredCv } from '../lib/cv/structured';
+import { joinSanitizedBlocks, sanitizeInlineText, sanitizeRawCvText, sanitizeStringList } from '../lib/cv/sanitize';
+import { logPipeline } from '../lib/debug/pipeline';
+import { buildNormalizedCvFromSegments } from '../lib/ingestion/segmenter';
+import { CvParsingError } from '../lib/ingestion/extractors';
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-const decodeBase64Text = (base64: string) => {
-  if (typeof atob !== 'function') {
-    return '';
-  }
-
-  try {
-    return decodeURIComponent(
-      Array.from(atob(base64))
-        .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`)
-        .join(''),
-    );
-  } catch {
-    return '';
-  }
+const safeJsonParse = <T>(raw: string): T => {
+  const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+  return JSON.parse(cleaned) as T;
 };
 
-const normalizeWhitespace = (value: string) => value.replace(/\s+/g, ' ').trim();
+const countAiTokens = (response: { usageMetadata?: { totalTokenCount?: number; candidatesTokenCount?: number; promptTokenCount?: number } }) =>
+  response.usageMetadata?.totalTokenCount ?? response.usageMetadata?.candidatesTokenCount ?? response.usageMetadata?.promptTokenCount ?? 0;
 
-const parseBullets = (rawText: string) =>
-  rawText
-    .split(/\n|\u2022|\-|\*/)
-    .map((line) => normalizeWhitespace(line))
-    .filter((line) => line.length > 18)
-    .slice(0, 8);
+const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema => ({
+  language: sanitizeInlineText(candidate.language) || (/[^\x00-\x7F]/.test(candidate.summary) ? 'pl' : 'en'),
+  fullName: sanitizeInlineText(candidate.fullName) || 'Kandydat FlowAssist',
+  headline: sanitizeInlineText(candidate.headline) || 'Specjalista z potencjalem rozwoju',
+  summary: sanitizeInlineText(candidate.summary) || 'Profil wymaga doprecyzowania na podstawie kompletnego CV.',
+  contact: {
+    email: sanitizeInlineText(candidate.contact.email),
+    phone: sanitizeInlineText(candidate.contact.phone),
+    location: sanitizeInlineText(candidate.contact.location),
+    links: sanitizeStringList(candidate.contact.links, 6),
+  },
+  skills: sanitizeStringList(candidate.skills, 20),
+  experience: candidate.experience
+    .map((entry) => ({
+      company: sanitizeInlineText(entry.company) || 'Doswiadczenie zawodowe',
+      role: sanitizeInlineText(entry.role) || 'Specjalista',
+      startDate: sanitizeInlineText(entry.startDate),
+      endDate: sanitizeInlineText(entry.endDate),
+      bullets: sanitizeStringList(entry.bullets, 6),
+    }))
+    .filter((entry) => entry.company || entry.role || entry.bullets.length),
+  education: candidate.education
+    .map((entry) => ({
+      institution: sanitizeInlineText(entry.institution) || 'Edukacja',
+      degree: sanitizeInlineText(entry.degree) || 'Kierunek do uzupelnienia',
+      endDate: sanitizeInlineText(entry.endDate),
+    }))
+    .filter((entry) => entry.institution || entry.degree),
+  certifications: sanitizeStringList(candidate.certifications, 10),
+});
 
-const extractEmail = (rawText: string) => rawText.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0];
-const extractPhone = (rawText: string) => rawText.match(/(\+?\d[\d\s-]{7,}\d)/)?.[0]?.trim();
+const validateNormalizedCvCandidate = (candidate: NormalizedCvSchema, rawText: string) => {
+  const reasons: string[] = [];
+  const structured = buildStructuredCvFromNormalized(candidate, '');
+  const structuredValidation = validateStructuredCv(structured);
 
-export const fallbackNormalizeCv = (rawText: string): NormalizedCvSchema => {
-  const lines = rawText
-    .split('\n')
-    .map((line) => normalizeWhitespace(line))
-    .filter(Boolean);
+  if (!candidate.fullName || candidate.fullName.length < 3) {
+    reasons.push('missing_name');
+  }
 
-  const topLines = lines.slice(0, 4);
-  const experienceBullets = parseBullets(rawText);
-  const inferredSkills = Array.from(
-    new Set(
-      rawText
-        .match(/\b(react|sprzedaz|sales|crm|excel|negocjacje|zarzadzanie|angielski|niemiecki|figma|typescript|marketing|klient)\b/gi) ?? [],
-    ),
-  ).map((skill) => skill.toLowerCase());
+  if (!candidate.summary || candidate.summary.length < 24) {
+    reasons.push('missing_summary');
+  }
+
+  if (!candidate.skills.length && !candidate.experience.length) {
+    reasons.push('missing_sections');
+  }
+
+  if (structuredValidation.reasons.length) {
+    reasons.push(...structuredValidation.reasons);
+  }
+
+  if (!sanitizeRawCvText(rawText)) {
+    reasons.push('empty_input');
+  }
 
   return {
-    language: /[ąćęłńóśźż]/i.test(rawText) ? 'pl' : 'en',
-    fullName: topLines[0] || 'Kandydat FlowAssist',
-    headline: topLines[1] || 'Specjalista z potencjałem rozwoju',
-    summary: topLines.slice(2, 4).join(' ') || rawText.slice(0, 240),
-    contact: {
-      email: extractEmail(rawText),
-      phone: extractPhone(rawText),
-      location: rawText.match(/(Warszawa|Krakow|Wroclaw|Gdansk|Poznan|Berlin|Remote)/i)?.[0],
-      links: [],
-    },
-    skills: inferredSkills.length ? inferredSkills : ['komunikacja', 'organizacja pracy'],
-    experience: [
-      {
-        company: 'Dotychczasowe doświadczenie',
-        role: topLines[1] || 'Specjalista',
-        bullets: experienceBullets.length ? experienceBullets : ['Doświadczenie wymaga doprecyzowania na podstawie pełnego CV.'],
-      },
-    ],
-    education: [],
-    certifications: [],
+    valid: reasons.length === 0,
+    reasons: Array.from(new Set(reasons)),
   };
 };
 
-const normalizeGeminiCv = (payload: Partial<NormalizedCvSchema>, rawText: string): NormalizedCvSchema => {
-  const fallback = fallbackNormalizeCv(rawText);
-  return {
+export const fallbackNormalizeCv = (rawInput: string, additionalContext = ''): NormalizedCvSchema =>
+  sanitizeNormalizedCv(buildNormalizedCvFromSegments(rawInput, additionalContext));
+
+const normalizeGeminiCv = (payload: Partial<NormalizedCvSchema>, rawText: string, additionalContext = ''): NormalizedCvSchema => {
+  const fallback = fallbackNormalizeCv(rawText, additionalContext);
+  return sanitizeNormalizedCv({
     language: payload.language || fallback.language,
     fullName: payload.fullName || fallback.fullName,
     headline: payload.headline || fallback.headline,
@@ -96,10 +107,14 @@ const normalizeGeminiCv = (payload: Partial<NormalizedCvSchema>, rawText: string
     experience: payload.experience?.length ? payload.experience : fallback.experience,
     education: payload.education ?? fallback.education,
     certifications: payload.certifications ?? fallback.certifications,
-  };
+  });
 };
 
-const extractNormalizedCvWithGemini = async (parts: Array<{ text?: string; inlineData?: { data: string; mimeType: string } }>, fallbackText: string) => {
+const extractNormalizedCvWithGemini = async (
+  parts: Array<{ text?: string; inlineData?: { data: string; mimeType: string } }>,
+  fallbackText: string,
+  additionalContext = '',
+) => {
   const ai = getGeminiClient();
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-pro',
@@ -155,12 +170,25 @@ const extractNormalizedCvWithGemini = async (parts: Array<{ text?: string; inlin
     },
   });
 
-  const parsed = JSON.parse(response.text || '{}') as Partial<NormalizedCvSchema>;
-  return normalizeGeminiCv(parsed, fallbackText);
+  const aiTokens = countAiTokens(response);
+  const parsed = safeJsonParse<Partial<NormalizedCvSchema>>(response.text || '{}');
+  const normalized = normalizeGeminiCv(parsed, fallbackText, additionalContext);
+  const validation = validateNormalizedCvCandidate(normalized, fallbackText);
+
+  logPipeline('ai_normalization', {
+    ai_tokens: aiTokens,
+    structured_sections: countStructuredSections(buildStructuredCvFromNormalized(normalized, additionalContext)),
+    valid: validation.valid,
+    reasons: validation.reasons,
+  });
+
+  return validation.valid ? normalized : fallbackNormalizeCv(fallbackText, additionalContext);
 };
 
-export const extractNormalizedCvFromText = async (rawText: string, additionalContext = ''): Promise<NormalizedCvSchema> => {
-  const fallback = fallbackNormalizeCv(`${rawText}\n${additionalContext}`);
+export const extractNormalizedCvFromText = async (rawInput: string, additionalContext = ''): Promise<NormalizedCvSchema> => {
+  const sanitizedText = sanitizeRawCvText(rawInput);
+  const sanitizedContext = sanitizeRawCvText(additionalContext);
+  const fallback = fallbackNormalizeCv(joinSanitizedBlocks(sanitizedText, sanitizedContext), sanitizedContext);
   if (!hasGeminiKey()) {
     return fallback;
   }
@@ -169,10 +197,11 @@ export const extractNormalizedCvFromText = async (rawText: string, additionalCon
     return await extractNormalizedCvWithGemini(
       [
         {
-          text: `Znormalizuj ponizsze dane kandydata do struktury CV. Zwracaj tylko JSON. Tekst: ${rawText}\nKontekst: ${additionalContext}`,
+          text: `Znormalizuj ponizsze dane kandydata do struktury CV. Zwracaj tylko JSON. Tekst: ${sanitizedText}\nKontekst: ${sanitizedContext}`,
         },
       ],
-      rawText,
+      joinSanitizedBlocks(sanitizedText, sanitizedContext),
+      sanitizedContext,
     );
   } catch {
     return fallback;
@@ -183,11 +212,16 @@ export const extractNormalizedCvFromAsset = async (
   asset: UploadedAsset,
   instruction: string,
   fallbackText = '',
+  additionalContext = '',
 ): Promise<NormalizedCvSchema> => {
-  const decoded = fallbackText || decodeBase64Text(asset.base64);
-  const fallback = fallbackNormalizeCv(decoded || asset.name);
+  const sanitizedFallbackText = sanitizeRawCvText(fallbackText);
+  const fallback = sanitizedFallbackText ? fallbackNormalizeCv(sanitizedFallbackText, additionalContext) : null;
   if (!hasGeminiKey()) {
-    return fallback;
+    if (fallback) {
+      return fallback;
+    }
+
+    throw new CvParsingError();
   }
 
   try {
@@ -196,46 +230,40 @@ export const extractNormalizedCvFromAsset = async (
         { inlineData: { data: asset.base64, mimeType: asset.mimeType } },
         { text: `${instruction} Zwracaj tylko JSON zgodny ze schematem CV.` },
       ],
-      decoded,
+      sanitizedFallbackText || sanitizeRawCvText(additionalContext),
+      additionalContext,
     );
   } catch {
-    return fallback;
+    if (fallback) {
+      return fallback;
+    }
+
+    throw new CvParsingError();
   }
 };
 
 export const generateStructuredCv = async (
   ingestion: IngestionResult,
   additionalContext: string,
-): Promise<StructuredCvDocument> => {
-  const { normalizedCv } = ingestion;
-  const sections = [
-    {
-      title: 'Profil',
-      items: [normalizedCv.summary || 'Kandydat posiada bazowe dane wymagajace dalszego uzupelnienia.'],
-    },
-    {
-      title: 'Doswiadczenie',
-      items: normalizedCv.experience.flatMap((entry) => [
-        `${entry.role} | ${entry.company}`,
-        ...entry.bullets.map((bullet) => `- ${bullet}`),
-      ]),
-    },
-    {
-      title: 'Kompetencje',
-      items: normalizedCv.skills,
-    },
-  ].filter((section) => section.items.length > 0);
+): Promise<StructuredCV> => {
+  const structuredCv = buildStructuredCvFromNormalized(ingestion.normalizedCv, additionalContext);
+  const validation = validateStructuredCv(structuredCv);
 
-  return {
-    fullName: normalizedCv.fullName,
-    targetRole: additionalContext || normalizedCv.headline,
-    summary: normalizedCv.summary,
-    contactLine: [normalizedCv.contact.email, normalizedCv.contact.phone, normalizedCv.contact.location]
-      .filter(Boolean)
-      .join(' | '),
-    sections,
-    atsKeywords: Array.from(new Set([...normalizedCv.skills, normalizedCv.headline, additionalContext])).filter(Boolean),
-  };
+  if (!validation.valid) {
+    const fallbackStructuredCv = buildStructuredCvFromNormalized(fallbackNormalizeCv(ingestion.rawText, additionalContext), additionalContext);
+    logPipeline('structured_cv_fallback', {
+      structured_sections: countStructuredSections(fallbackStructuredCv),
+      reasons: validation.reasons,
+    });
+    return fallbackStructuredCv;
+  }
+
+  logPipeline('structured_cv_ready', {
+    structured_sections: countStructuredSections(structuredCv),
+    warnings: ingestion.warnings,
+  });
+
+  return structuredCv;
 };
 
 export const generateCareerAnalysis = async (normalizedCv: NormalizedCvSchema, additionalContext: string): Promise<CareerAnalysis> =>
@@ -264,3 +292,4 @@ export const toCareerProfile = (analysis: CareerAnalysis, normalizedCv: Normaliz
   missingSkills: analysis.missingSkills,
   lastUpdatedAt: new Date().toISOString(),
 });
+

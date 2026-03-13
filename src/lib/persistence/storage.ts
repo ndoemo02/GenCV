@@ -1,4 +1,5 @@
-﻿import type { PersistedWorkspace } from '../../types';
+import type { PersistedWorkspace } from '../../types';
+import { coerceStructuredCv } from '../cv/structured';
 
 const STORAGE_KEY = 'flowassist-career-workspace';
 
@@ -27,7 +28,10 @@ export const loadWorkspace = (): PersistedWorkspace => {
       latestVersionId: parsed.latestVersionId ?? null,
       analyses: parsed.analyses ?? [],
       roadmaps: parsed.roadmaps ?? [],
-      versions: parsed.versions ?? [],
+      versions: (parsed.versions ?? []).map((version) => ({
+        ...version,
+        structuredCv: coerceStructuredCv(version.structuredCv),
+      })),
     };
   } catch {
     return emptyWorkspace();

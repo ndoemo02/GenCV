@@ -1,6 +1,7 @@
-﻿import React from 'react';
+import React from 'react';
 import type { PersistedWorkspace, WorkflowResult } from '../../types';
 import { EmptyTabState } from './EmptyTabState';
+import { getStructuredCvDisplayTitle } from '../../lib/cv/structured';
 
 export const ProfileTab: React.FC<{
   result: WorkflowResult | null;
@@ -51,7 +52,7 @@ export const ProfileTab: React.FC<{
                 className="flex w-full items-center justify-between rounded-[1.4rem] border border-white/6 bg-black/20 px-4 py-4 text-left transition hover:border-white/20"
               >
                 <div>
-                  <p className="text-sm font-semibold text-white">{version.structuredCv.targetRole}</p>
+                  <p className="text-sm font-semibold text-white">{getStructuredCvDisplayTitle(version.structuredCv)}</p>
                   <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.28em] text-zinc-500">{new Date(version.createdAt).toLocaleString()}</p>
                 </div>
                 <div className="text-right">
