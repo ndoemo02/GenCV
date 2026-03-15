@@ -25,22 +25,27 @@ const safeJsonParse = <T>(raw: string): T => {
 const countAiTokens = (response: { usageMetadata?: { totalTokenCount?: number; candidatesTokenCount?: number; promptTokenCount?: number } }) =>
   response.usageMetadata?.totalTokenCount ?? response.usageMetadata?.candidatesTokenCount ?? response.usageMetadata?.promptTokenCount ?? 0;
 
-const SECTION_HEADERS_REGEX = /(umiejetnosci|umiejętności|umiej|umeęno|kompetencje|doswiadczenie|doświadczenie|dosw|dośw|wyksztalcenie|wykształcenie|edukacja|profil|podsumowanie|hobby|jezyki|języki|skills|experience|education|summary|languages|clausula|klauzula|contact|kontakt)/i;
+const SECTION_HEADERS_REGEX = /(umiejetnosci|umiejętności|umiej|umeęno|kompetencje|doswiadczenie|doświadczenie|dosw|dośw|zawodowe|wyksztalcenie|wykształcenie|wykszt|edukacja|profil|podsumowanie|hobby|jezyki|języki|skills|experience|education|summary|languages|clausula|klauzula|contact|kontakt|urodzenia|urodz|miejscowosc|adres|hobby|zainteresowania|szkolenia|kursy)/i;
 
 const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema => {
   let fullName = sanitizeInlineText(candidate.fullName);
   let headline = sanitizeInlineText(candidate.headline);
   
-  // Agresywna filtracja naglowkow i smieci ocr dla Imienia i Nazwiska
+  // Agresywna filtracja naglowkow i smieci ocr dla Imienia i Nazwiska (Paranoid Mode)
   if (fullName) {
-    const isHeader = SECTION_HEADERS_REGEX.test(fullName);
+    const fnLower = fullName.toLowerCase();
+    const isHeader = SECTION_HEADERS_REGEX.test(fnLower);
     const isGarbage = fullName.length > 25 && !fullName.includes(' ');
-    const isTooLong = fullName.length > 45;
-    const isTooHeavyUppercase = (fullName.match(/[A-ZĄĘÓŚŁŻŹĆ]/g)?.length ?? 0) > fullName.length * 0.7 && fullName.length > 10;
+    const isTooLong = fullName.length > 40;
+    const isTooHeavyUppercase = (fullName.match(/[A-ZĄĘÓŚŁŻŹĆ]/g)?.length ?? 0) > fullName.length * 0.65 && fullName.length > 8;
     const hasForbiddenChars = /[©®™]/.test(fullName);
-    const startsWithKeyword = /^(umiej|dosw|wyksz|edu|pro)/i.test(fullName);
+    const hasDigit = /\d/.test(fullName);
+    const startsWithKeyword = /^(umiej|dosw|wyksz|edu|pro|zawod)/i.test(fullName);
     
-    if (isHeader || isGarbage || isTooLong || isTooHeavyUppercase || hasForbiddenChars || startsWithKeyword) {
+    // Jeśli zawiera słowa typowe dla sekcji potraktuj jako garbage
+    const containsSectionKeywords = /(doświadczenie|umiejętności|zawodowe|kompetencje|edukacja)/i.test(fnLower);
+    
+    if (isHeader || isGarbage || isTooLong || isTooHeavyUppercase || hasForbiddenChars || startsWithKeyword || hasDigit || containsSectionKeywords) {
       fullName = 'Imię i Nazwisko';
     }
   }
@@ -256,7 +261,7 @@ export const extractNormalizedCvFromAsset = async (
     return await extractNormalizedCvWithGemini(
       [
         { inlineData: { data: asset.base64, mimeType: asset.mimeType } },
-        { text: `${instruction} UWAGA: Nigdy nie uzywaj naglowkow sekcji (np. DOSWIADCZENIE, UMIEJETNOSCI, UMEĘNOŚĆ) jako Imienia i Nazwiska kandydata. Jesli nie widac imienia i nazwiska w dokumencie, kategorycznie wpisz "Imię i Nazwisko". Zwracaj tylko JSON zgodny ze schematem CV.` },
+        { text: `${instruction} KATEGORYCZNE OSTRZEZENIE: Nigdy nie uzywaj naglowkow sekcji (np. DOSWIADCZENIE ZAWODOWE, UMIEJETNOSCI, UMEĘNOŚĆ) jako Imienia i Nazwiska kandydata. Wykryto, ze bierzesz tytuly sekcji zamiast danych. Jesli nie widzisz wyraznie Imienia i Nazwiska w dokumencie (zwykle na samej gorze, duzymi literami), wpisz "Imię i Nazwisko". Zwracaj tylko czysty JSON.` },
       ],
       sanitizedFallbackText || sanitizeRawCvText(additionalContext),
       additionalContext,
