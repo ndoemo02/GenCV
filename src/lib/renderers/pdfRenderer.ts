@@ -105,48 +105,38 @@ export const renderStructuredPdf = async (
   let sidebarY = 780;
   
   // Contact info in sidebar
-  page.drawText("KONTAKT", { x: horizontalMargin, y: sidebarY, size: 9, font: boldFont, color: colors.accent });
-  sidebarY -= 16;
+  page.drawText("DANE KONTAKTOWE", { x: horizontalMargin, y: sidebarY, size: 8.5, font: boldFont, color: colors.accent });
+  sidebarY -= 14;
   
   const contactParts = contactLine.split(' | ');
   for (const part of contactParts) {
-    const lines = wrapText(part, 22);
+    const lines = wrapText(part, 24);
     for (const line of lines) {
-      page.drawText(line, { x: horizontalMargin, y: sidebarY, size: 8.5, font: regularFont, color: colors.text });
-      sidebarY -= 11;
+      if (sidebarY < 40) break;
+      page.drawText(line, { x: horizontalMargin, y: sidebarY, size: 8, font: regularFont, color: colors.text });
+      sidebarY -= 10;
     }
-    sidebarY -= 4;
+    sidebarY -= 2;
   }
 
-  sidebarY -= 20;
+  sidebarY -= 15;
 
   // Skills in sidebar
   if (document.skills?.length) {
-    page.drawText("KOMPETENCJE", { x: horizontalMargin, y: sidebarY, size: 9, font: boldFont, color: colors.accent });
-    sidebarY -= 16;
+    page.drawText("KOMPETENCJE", { x: horizontalMargin, y: sidebarY, size: 8.5, font: boldFont, color: colors.accent });
+    sidebarY -= 14;
     for (const skill of document.skills) {
-      const lines = wrapText(skill, 20);
+      const lines = wrapText(skill, 22);
       for (const line of lines) {
-        page.drawText(`• ${line}`, { x: horizontalMargin, y: sidebarY, size: 8.5, font: regularFont, color: colors.secondaryText });
-        sidebarY -= 11;
+        if (sidebarY < 30) break;
+        page.drawText(`• ${line}`, { x: horizontalMargin, y: sidebarY, size: 8, font: regularFont, color: colors.text });
+        sidebarY -= 10;
       }
-      sidebarY -= 3;
+      sidebarY -= 2;
     }
   }
 
-  // Main Content - Summary
-  if (document.summary) {
-    page.drawText("PROFIL ZAWODOWY", { x: contentX, y: cursorY, size: 10, font: boldFont, color: colors.accent });
-    cursorY -= 16;
-    const summaryLines = wrapText(document.summary, 65);
-    for (const line of summaryLines) {
-      page.drawText(line, { x: contentX, y: cursorY, size: 9.5, font: regularFont, color: colors.text });
-      cursorY -= 13;
-    }
-    cursorY -= 20;
-  }
-
-  // Main Content - Sections (Experience, Education etc)
+  // Main Content - Sections (Summary, Experience, Education etc)
   for (const section of displaySections) {
     // Check for space before section title
     if (cursorY < 120) {
@@ -155,7 +145,8 @@ export const renderStructuredPdf = async (
       cursorY = 800;
     }
 
-    page.drawText(section.title.toUpperCase(), { x: contentX, y: cursorY, size: 10, font: boldFont, color: colors.accent });
+    const sectionTitle = section.title.toUpperCase();
+    page.drawText(sectionTitle, { x: contentX, y: cursorY, size: 10, font: boldFont, color: colors.accent });
     page.drawLine({
       start: { x: contentX, y: cursorY - 3 },
       end: { x: contentX + contentWidth, y: cursorY - 3 },

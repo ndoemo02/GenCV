@@ -27,9 +27,9 @@ const countAiTokens = (response: { usageMetadata?: { totalTokenCount?: number; c
 
 const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema => ({
   language: sanitizeInlineText(candidate.language) || (/[^\x00-\x7F]/.test(candidate.summary) ? 'pl' : 'en'),
-  fullName: sanitizeInlineText(candidate.fullName) || 'Kandydat FlowAssist',
-  headline: sanitizeInlineText(candidate.headline) || 'Specjalista z potencjalem rozwoju',
-  summary: sanitizeInlineText(candidate.summary) || 'Profil wymaga doprecyzowania na podstawie kompletnego CV.',
+  fullName: sanitizeInlineText(candidate.fullName) || 'Imie i Nazwisko',
+  headline: sanitizeInlineText(candidate.headline),
+  summary: sanitizeInlineText(candidate.summary),
   contact: {
     email: sanitizeInlineText(candidate.contact.email),
     phone: sanitizeInlineText(candidate.contact.phone),

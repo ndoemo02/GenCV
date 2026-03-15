@@ -27,7 +27,7 @@ const suspiciousToken = (token: string) => {
     return true;
   }
 
-  if (token.length > 24 && !/[aeiouy¹êó]/iu.test(token)) {
+  if (token.length > 24 && !/[aeiouyÄ…Ä™Ã³]/iu.test(token)) {
     return true;
   }
 
@@ -153,14 +153,14 @@ export const getStructuredCvDisplaySections = (cv: StructuredCV): StructuredCvDi
 
   if (cv.summary) {
     sections.push({
-      title: 'Profil',
+      title: 'Podsumowanie zawodowe',
       items: [cv.summary],
     });
   }
 
   if (cv.experience?.length) {
     sections.push({
-      title: 'Doswiadczenie',
+      title: 'Doswiadczenie zawodowe',
       items: cv.experience.flatMap((entry) => {
         const title = [entry.role, entry.company].filter(Boolean).join(' | ');
         const dateLine = [entry.start, entry.end].filter(Boolean).join(' - ');
@@ -169,12 +169,15 @@ export const getStructuredCvDisplaySections = (cv: StructuredCV): StructuredCvDi
     });
   }
 
+  // Kompetencje sa wyswietlane w pasku bocznym PDF
+  /*
   if (cv.skills?.length) {
     sections.push({
       title: 'Kompetencje',
       items: cv.skills,
     });
   }
+  */
 
   if (cv.education?.length) {
     sections.push({
@@ -193,9 +196,9 @@ export const getStructuredCvDisplaySections = (cv: StructuredCV): StructuredCvDi
 export const getStructuredCvContactLine = (cv: StructuredCV) =>
   [cv.personal?.email, cv.personal?.phone, cv.personal?.location].filter(Boolean).join(' | ');
 
-export const getStructuredCvDisplayName = (cv: StructuredCV) => cv.personal?.name || 'Kandydat FlowAssist';
+export const getStructuredCvDisplayName = (cv: StructuredCV) => cv.personal?.name || 'Imie i Nazwisko';
 
-export const getStructuredCvDisplayTitle = (cv: StructuredCV) => cv.personal?.title || 'Specjalista';
+export const getStructuredCvDisplayTitle = (cv: StructuredCV) => cv.personal?.title || '';
 
 export const getStructuredCvAtsKeywords = (cv: StructuredCV) =>
   sanitizeStringList([
