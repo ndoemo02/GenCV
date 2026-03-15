@@ -46,7 +46,7 @@ export const ApiKeyGate: React.FC<{ onKeySelected: () => void }> = ({ onKeySelec
       }
 
       // 3. Check environment variable (for local dev)
-      const localKey = (process.env as any).GEMINI_API_KEY;
+      const localKey = import.meta.env.VITE_GEMINI_API_KEY;
       if (localKey && localKey !== "MY_GEMINI_API_KEY" && localKey !== "" && localKey !== undefined) {
         setHasKey(true);
         onKeySelected();

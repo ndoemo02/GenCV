@@ -100,3 +100,9 @@ export const sanitizeStringList = (items: Array<string | undefined> | undefined,
 
 export const joinSanitizedBlocks = (...parts: Array<string | undefined>): string =>
   sanitizeRawCvText(parts.filter(Boolean).join('\n'));
+
+export const sanitizeHeadline = (text: string | undefined): string => {
+  const clean = sanitizeInlineText(text) || '';
+  if (clean.length <= 70) return clean;
+  return clean.slice(0, 67) + '...';
+};

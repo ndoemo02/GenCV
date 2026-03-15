@@ -1,4 +1,4 @@
-﻿{
+{
   "compilerOptions": {
     "target": "ES2022",
     "experimentalDecorators": true,
@@ -15,7 +15,8 @@
       "@/*": ["./*"]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "types": ["vite/client"]
   },
   "include": ["src/**/*", "vite.config.ts"],
   "exclude": ["ui-lab", "dist", "node_modules"]

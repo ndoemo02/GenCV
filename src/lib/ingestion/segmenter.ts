@@ -1,5 +1,5 @@
 import type { EducationEntry, ExperienceEntry, NormalizedCvSchema, ParsedCvSectionEducation, ParsedCvSectionExperience, ParsedCvSections } from '../../types';
-import { sanitizeInlineText, sanitizeRawCvText, sanitizeStringList } from '../cv/sanitize';
+import { sanitizeHeadline, sanitizeInlineText, sanitizeRawCvText, sanitizeStringList } from '../cv/sanitize';
 
 const SECTION_PATTERNS: Array<{ key: keyof ParsedCvSections; pattern: RegExp }> = [
   { key: 'profileSummary', pattern: /^(profil|o mnie|podsumowanie|profil zawodowy)$/i },
@@ -160,7 +160,10 @@ const buildExperience = (lines: string[]): ParsedCvSectionExperience[] => {
   return entries.map((entry) => ({
     company: sanitizeInlineText(entry.company),
     role: sanitizeInlineText(entry.role),
-    bullets: entry.description ? [sanitizeInlineText(entry.description)] : [],
+    bullets: sanitizeStringList(
+      entry.description?.split(/[- \u2022\u00b7\u002d\u2013]\s+/).map((s) => s.trim()) ?? [],
+      8,
+    ),
     start: sanitizeInlineText(entry.start),
     end: sanitizeInlineText(entry.end),
   }));
@@ -295,11 +298,12 @@ export const buildNormalizedCvFromSegments = (
       ? 'pl'
       : 'en',
     fullName: segmented.header.name || 'Imi\u0119 i Nazwisko',
-    headline:
+    headline: sanitizeHeadline(
       sanitizeInlineText(additionalContext) ||
       segmented.header.title ||
       segmented.experience[0]?.role ||
-      'Specjalista',
+      'Specjalista'
+    ),
     summary,
     contact: {
       email: segmented.header.email,

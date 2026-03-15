@@ -1,7 +1,7 @@
 import React from 'react';
 import { Download, FileText, LineChart, Mail, MapPin, Phone, Radar, RefreshCw, Route, Zap } from 'lucide-react';
 import type { WorkflowResult } from '../types';
-import { getStructuredCvDisplayName, getStructuredCvDisplaySections, getStructuredCvDisplayTitle } from '../lib/cv/structured';
+import { getStructuredCvDisplayName, getStructuredCvDisplayTitle } from '../lib/cv/structured';
 
 interface Step3Props {
   result: WorkflowResult;
@@ -38,7 +38,6 @@ export const Step3Result: React.FC<Step3Props> = ({ result, onRestart }) => {
     { label: 'klarownosc', value: result.analysis.profileClarity, desc: 'Jasnosć narracji' },
   ];
 
-  const displaySections = getStructuredCvDisplaySections(result.structuredCv);
   const fullName = getStructuredCvDisplayName(result.structuredCv);
   const title = getStructuredCvDisplayTitle(result.structuredCv);
 
@@ -145,18 +144,66 @@ export const Step3Result: React.FC<Step3Props> = ({ result, onRestart }) => {
               </header>
 
               <div className="mt-8 space-y-10">
-                {displaySections.map((section) => (
-                  <div key={section.title} className="break-words">
-                    <h4 className="border-b border-zinc-100 pb-1 text-[11px] font-black uppercase tracking-widest text-zinc-400">{section.title}</h4>
-                    <div className="mt-4 space-y-6">
-                      {section.items.map((item, idx) => (
-                        <p key={`${section.title}-${idx}`} className="text-[12.5px] leading-relaxed text-zinc-800 break-words">
-                          {item}
-                        </p>
+                {/* Summary Section */}
+                {result.structuredCv.summary && (
+                  <div className="break-words">
+                    <h4 className="border-b border-zinc-100 pb-1 text-[11px] font-black uppercase tracking-widest text-zinc-400">Podsumowanie zawodowe</h4>
+                    <p className="mt-4 text-[12.5px] leading-relaxed text-zinc-800">
+                      {result.structuredCv.summary}
+                    </p>
+                  </div>
+                )}
+
+                {/* Experience Section */}
+                {result.structuredCv.experience?.length ? (
+                  <div className="break-words">
+                    <h4 className="border-b border-zinc-100 pb-1 text-[11px] font-black uppercase tracking-widest text-zinc-400">Doświadczenie zawodowe</h4>
+                    <div className="mt-6 space-y-8">
+                      {result.structuredCv.experience.map((entry, i) => (
+                        <div key={`exp-${i}`} className="relative">
+                          <header>
+                            <h5 className="text-[13px] font-black text-zinc-900 leading-tight">
+                              {entry.role} {entry.company && <span className="text-zinc-400 font-normal mx-1">|</span>} {entry.company}
+                            </h5>
+                            {(entry.start || entry.end) && (
+                              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mt-1">
+                                {entry.start} - {entry.end || 'Obecnie'}
+                              </p>
+                            )}
+                          </header>
+                          {entry.bullets && entry.bullets.length > 0 && (
+                            <ul className="mt-3 space-y-1.5 list-disc list-outside ml-4">
+                              {entry.bullets.map((bullet, bi) => (
+                                <li key={`bullet-${i}-${bi}`} className="text-[12px] text-zinc-700 leading-relaxed pl-1">
+                                  {bullet}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>
-                ))}
+                ) : null}
+
+                {/* Education Section */}
+                {result.structuredCv.education?.length ? (
+                  <div className="break-words">
+                    <h4 className="border-b border-zinc-100 pb-1 text-[11px] font-black uppercase tracking-widest text-zinc-400">Edukacja</h4>
+                    <div className="mt-6 space-y-6">
+                      {result.structuredCv.education.map((edu, i) => (
+                        <div key={`edu-${i}`}>
+                          <h5 className="text-[12.5px] font-bold text-zinc-900">
+                            {edu.degree} {edu.school && <span className="text-zinc-300 font-normal mx-1">|</span>} {edu.school}
+                          </h5>
+                          {edu.end && (
+                            <p className="text-[10.5px] text-zinc-500 mt-1 uppercase tracking-wider">{edu.end}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>

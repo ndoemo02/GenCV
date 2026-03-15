@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowRight, ChevronDown, CircleHelp, Plus, Upload } from 'lucide-react';
+import { ArrowRight, ChevronDown, CircleHelp, Plus, Target, Upload } from 'lucide-react';
 import type { Step1Submission, UploadedAsset } from '../types';
 
 interface Step1Props {
@@ -76,7 +76,7 @@ export const Step1Input: React.FC<Step1Props> = ({ onSubmit, isBusy = false }) =
   const [rawText, setRawText] = useState('');
   const [additionalContext, setAdditionalContext] = useState('');
   const [showHelp, setShowHelp] = useState(false);
-  const [openSection, setOpenSection] = useState<AccordionSection>(null);
+  const [openSection, setOpenSection] = useState<AccordionSection>('context');
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -169,11 +169,14 @@ export const Step1Input: React.FC<Step1Props> = ({ onSubmit, isBusy = false }) =
 
         <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md">
           <button type="button" onClick={() => toggleSection('context')} className="flex w-full items-center justify-between px-4 py-3 text-left">
-            <span className="text-xs uppercase tracking-[0.24em] text-white/60">Dodatkowe informacje (opcjonalnie)</span>
+            <span className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-white/80">
+              <Target size={14} className="text-blue-400" /> Docelowe stanowisko
+            </span>
             <ChevronDown size={16} className={`text-white/40 transition ${openSection === 'context' ? 'rotate-180' : ''}`} />
           </button>
           <div className={`grid transition-[grid-template-rows,opacity] duration-300 ${openSection === 'context' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-70'}`}>
             <div className="overflow-hidden px-4 pb-4">
+              <p className="mb-2 text-[10px] text-zinc-500 uppercase tracking-widest">Dopasuj analizę pod konkretną rolę:</p>
               <textarea
                 value={additionalContext}
                 onChange={(event) => setAdditionalContext(event.target.value)}
