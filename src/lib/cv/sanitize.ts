@@ -36,12 +36,18 @@ export const sanitizeRawCvText = (raw: string): string => {
   return lines.join('\n').slice(0, MAX_RAW_LENGTH).trim();
 };
 
+const COMMON_TRASH = /^(umiejetnosci|umiejętności|umiej|umeęno|kompetencje|doswiadczenie|doświadczenie|dosw|dośw|zawodowe|wyksztalcenie|wykształcenie|wykszt|edukacja|profil|podsumowanie|hobby|jezyki|języki|skills|experience|education|summary|languages|clausula|klauzula|contact|kontakt|urodzenia|urodz|miejscowosc|adres|hobby|zainteresowania|szkolenia|kursy)([:\s•·|]|$)/i;
+
 export const sanitizeInlineText = (raw: string | undefined): string | undefined => {
   if (!raw) {
     return undefined;
   }
 
-  const sanitized = sanitizeRawCvText(raw).replace(/\n+/g, ' ').trim();
+  const sanitized = sanitizeRawCvText(raw)
+    .replace(/\n+/g, ' ')
+    .replace(COMMON_TRASH, '')
+    .trim();
+    
   return sanitized || undefined;
 };
 

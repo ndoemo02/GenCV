@@ -27,6 +27,21 @@ const countAiTokens = (response: { usageMetadata?: { totalTokenCount?: number; c
 
 const SECTION_HEADERS_REGEX = /(umiejetnosci|umiejętności|umiej|umeęno|kompetencje|doswiadczenie|doświadczenie|dosw|dośw|zawodowe|wyksztalcenie|wykształcenie|wykszt|edukacja|profil|podsumowanie|hobby|jezyki|języki|skills|experience|education|summary|languages|clausula|klauzula|contact|kontakt|urodzenia|urodz|miejscowosc|adres|hobby|zainteresowania|szkolenia|kursy)/i;
 
+const smartSplitList = (items: string[] | string | undefined): string[] => {
+  if (!items) return [];
+  if (Array.isArray(items)) {
+    return items.flatMap(item => {
+      if (typeof item !== 'string') return [];
+      // Rozbijamy po popularnych separatorach list (kropki, pionowe kreski, gwiazdki, nowe linie, duze odstepy)
+      return item.split(/[•·\|\*\n]|\s{3,}/).map(p => p.trim()).filter(p => p.length > 2);
+    });
+  }
+  if (typeof items === 'string') {
+    return items.split(/[•·\|\*\n]|\s{3,}/).map(p => p.trim()).filter(p => p.length > 2);
+  }
+  return [];
+};
+
 const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema => {
   let fullName = sanitizeInlineText(candidate.fullName);
   let headline = sanitizeInlineText(candidate.headline);
@@ -68,15 +83,15 @@ const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema
       location: sanitizeInlineText(candidate.contact.location),
       links: sanitizeStringList(candidate.contact.links, 6),
     },
-  skills: sanitizeStringList(candidate.skills, 20),
-  experience: candidate.experience
-    .map((entry) => ({
-      company: sanitizeInlineText(entry.company) || 'Doswiadczenie zawodowe',
-      role: sanitizeInlineText(entry.role) || 'Specjalista',
-      startDate: sanitizeInlineText(entry.startDate),
-      endDate: sanitizeInlineText(entry.endDate),
-      bullets: sanitizeStringList(entry.bullets, 6),
-    }))
+    skills: smartSplitList(candidate.skills).slice(0, 24),
+    experience: (candidate.experience || [])
+      .map((entry) => ({
+        company: sanitizeInlineText(entry.company) || 'Doswiadczenie zawodowe',
+        role: sanitizeInlineText(entry.role) || 'Specjalista',
+        startDate: sanitizeInlineText(entry.startDate),
+        endDate: sanitizeInlineText(entry.endDate),
+        bullets: smartSplitList(entry.bullets),
+      }))
     .filter((entry) => entry.company || entry.role || entry.bullets.length),
   education: candidate.education
     .map((entry) => ({
@@ -150,11 +165,10 @@ const extractNormalizedCvWithGemini = async (
 ) => {
   const ai = getGeminiClient();
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-pro',
+    model: 'gemini-1.5-pro',
     contents: { parts },
     config: {
       responseMimeType: 'application/json',
-      thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
       responseSchema: {
         type: Type.OBJECT,
         properties: {
