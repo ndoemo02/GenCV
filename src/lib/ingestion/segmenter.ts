@@ -3,17 +3,17 @@ import { sanitizeInlineText, sanitizeRawCvText, sanitizeStringList } from '../cv
 
 const SECTION_PATTERNS: Array<{ key: keyof ParsedCvSections; pattern: RegExp }> = [
   { key: 'profileSummary', pattern: /^(profil|o mnie|podsumowanie|profil zawodowy)$/i },
-  { key: 'experience', pattern: /^(do�wiadczenie|doswiadczenie|do�wiadczenie zawodowe|doswiadczenie zawodowe|historia zatrudnienia)$/i },
-  { key: 'skills', pattern: /^(umiej�tno�ci|umiejetnosci|kompetencje|skillset|skills)$/i },
-  { key: 'languages', pattern: /^(j�zyki|jezyki|languages)$/i },
-  { key: 'education', pattern: /^(wykszta�cenie|wyksztalcenie|edukacja|education)$/i },
+  { key: 'experience', pattern: /^(do\u015bwiadczenie|doswiadczenie|do\u015bwiadczenie zawodowe|doswiadczenie zawodowe|historia zatrudnienia)$/i },
+  { key: 'skills', pattern: /^(umiej\u0119tno\u015bci|umiejetnosci|kompetencje|skillset|skills)$/i },
+  { key: 'languages', pattern: /^(j\u0119zyki|jezyki|languages)$/i },
+  { key: 'education', pattern: /^(wykszta\u0142cenie|wyksztalcenie|edukacja|education)$/i },
   { key: 'courses', pattern: /^(kursy|certyfikaty|szkolenia|courses)$/i },
 ];
 
-const MONTH_NAMES = '(sty|lut|mar|kwi|maj|cze|lip|sie|wrz|pa�|paz|lis|gru|jan|feb|apr|jun|jul|aug|sep|oct|nov|dec)';
-const DATE_RANGE_PATTERN = new RegExp(`((?:${MONTH_NAMES})\\s+\\d{4}|\\d{2}[./-]\\d{4}|\\d{4})\\s*(?:-|�|do|to)\\s*((?:${MONTH_NAMES})\\s+\\d{4}|obecnie|present|aktualnie|\\d{2}[./-]\\d{4}|\\d{4})`, 'i');
+const MONTH_NAMES = '(sty|lut|mar|kwi|maj|cze|lip|sie|wrz|pa\u017a|paz|lis|gru|jan|feb|apr|jun|jul|aug|sep|oct|nov|dec)';
+const DATE_RANGE_PATTERN = new RegExp(`((?:${MONTH_NAMES})\\s+\\d{4}|\\d{2}[./-]\\d{4}|\\d{4})\\s*(?:-|\u2013|do|to)\\s*((?:${MONTH_NAMES})\\s+\\d{4}|obecnie|present|aktualnie|\\d{2}[./-]\\d{4}|\\d{4})`, 'i');
 const YEAR_PATTERN = /(?:19|20)\d{2}/g;
-const SPLIT_PATTERN = /[,|;�]/;
+const SPLIT_PATTERN = /[,|;\u2022]/;
 
 const uniqueLines = (rawText: string) =>
   sanitizeRawCvText(rawText)
@@ -23,26 +23,39 @@ const uniqueLines = (rawText: string) =>
 
 const detectSection = (line: string) => SECTION_PATTERNS.find((entry) => entry.pattern.test(line))?.key;
 
-const HEADER_KEYWORDS_BLACKLIST = /(umiejetnosci|umiejętności|doswiadczenie|doświadczenie|wyksztalcenie|wykształcenie|profil|podsumowanie|hobby|jezyki|języki|skills|experience|education|summary|languages|clausula|klauzula|contact|kontakt|urodzenia|urodz|miejscowosc|adres|hobby|zainteresowania|szkolenia|kursy|umeęno)/i;
+const HEADER_KEYWORDS_BLACKLIST = /(umiejetnosci|umiej\u0119tno\u015bci|doswiadczenie|do\u015bwiadczenie|wyksztalcenie|wykszta\u0142cenie|profil|podsumowanie|hobby|jezyki|j\u0119zyki|skills|experience|education|summary|languages|clausula|klauzula|contact|kontakt|urodzenia|urodz|miejscowosc|adres|zainteresowania|szkolenia|kursy)/i;
 
 const collectHeader = (lines: string[]) => {
   const top = lines.slice(0, 10);
   const email = top.find((line) => /@/.test(line));
   const phone = top.find((line) => /\+?\d[\d\s()-]{7,}\d/.test(line));
-  const location = top.find((line) => /(warszawa|krakw|krakow|wrocaw|wroclaw|gdask|gdansk|pozna|poznan|berlin|remote|polska|poland)/i.test(line));
-  
-  const nameCandidate = top.find((line) => 
-    /^[A-Z][a-z\u00F3\u0105\u0107\u0119\u0142\u0144\u015B\u017A\u017C][\p{L}'-]+(?:\s+[A-Z][a-z\u00F3\u0105\u0107\u0119\u0142\u0144\u015B\u017A\u017C][\p{L}'-]+){1,3}$/u.test(line) && 
+  const location = top.find((line) =>
+    /(warszawa|krak\u00f3w|krakow|wroc\u0142aw|wroclaw|gda\u0144sk|gdansk|pozna\u0144|poznan|berlin|remote|polska|poland|piekary|\u015bl\u0105sk)/i.test(line)
+  );
+
+  const nameCandidate = top.find((line) =>
+    /^[A-Z][a-z\u00f3\u0105\u0107\u0119\u0142\u0144\u015b\u017a\u017c][\p{L}'-]+(?:\s+[A-Z][a-z\u00f3\u0105\u0107\u0119\u0142\u0144\u015b\u017a\u017c][\p{L}'-]+){1,3}$/u.test(line) &&
     !HEADER_KEYWORDS_BLACKLIST.test(line)
   );
 
-  const name = nameCandidate || top.find((line) => 
-    /^[\p{Lu}][\p{L}'-]+(?:\s+[\p{Lu}][\p{L}'-]+){1,3}$/u.test(line) && 
-    !HEADER_KEYWORDS_BLACKLIST.test(line) &&
-    line.length < 40
+  const name =
+    nameCandidate ||
+    top.find(
+      (line) =>
+        /^[\p{Lu}][\p{L}'-]+(?:\s+[\p{Lu}][\p{L}'-]+){1,3}$/u.test(line) &&
+        !HEADER_KEYWORDS_BLACKLIST.test(line) &&
+        line.length < 40,
+    );
+
+  const title = top.find(
+    (line) =>
+      line !== name &&
+      !/@/.test(line) &&
+      !/\d/.test(line) &&
+      line.length > 8 &&
+      line.length < 80 &&
+      !HEADER_KEYWORDS_BLACKLIST.test(line),
   );
-  
-  const title = top.find((line) => line !== name && !/@/.test(line) && !/\d/.test(line) && line.length > 8 && line.length < 80 && !HEADER_KEYWORDS_BLACKLIST.test(line));
   return { name, title, email, phone, location };
 };
 
@@ -76,7 +89,10 @@ const extractTimeline = (line: string) => {
 };
 
 const normalizeRoleCompany = (line: string) => {
-  const clean = sanitizeInlineText(line)?.replace(DATE_RANGE_PATTERN, '').replace(/\s{2,}/g, ' ').trim();
+  const clean = sanitizeInlineText(line)
+    ?.replace(DATE_RANGE_PATTERN, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
   if (!clean) {
     return { role: undefined, company: undefined };
   }
@@ -131,7 +147,10 @@ const buildExperience = (lines: string[]): ParsedCvSectionExperience[] => {
       continue;
     }
 
-    current.description = [current.description, sanitizeInlineText(line)].filter(Boolean).join(' ').trim();
+    current.description = [current.description, sanitizeInlineText(line)]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
   }
 
   if (current && (current.role || current.company || current.description)) {
@@ -152,7 +171,9 @@ const buildEducation = (lines: string[]): ParsedCvSectionEducation[] => {
 
   for (const line of lines) {
     const timeline = extractTimeline(line);
-    const clean = sanitizeInlineText(line)?.replace(DATE_RANGE_PATTERN, '').trim();
+    const clean = sanitizeInlineText(line)
+      ?.replace(DATE_RANGE_PATTERN, '')
+      .trim();
     if (!clean) {
       continue;
     }
@@ -169,7 +190,9 @@ const buildEducation = (lines: string[]): ParsedCvSectionEducation[] => {
   return items;
 };
 
-export const segmentCvText = (rawText: string): ParsedCvSections & { header: ReturnType<typeof collectHeader> } => {
+export const segmentCvText = (
+  rawText: string,
+): ParsedCvSections & { header: ReturnType<typeof collectHeader> } => {
   const lines = uniqueLines(rawText);
   const sections: ParsedCvSections = {
     profileSummary: '',
@@ -211,11 +234,29 @@ export const segmentCvText = (rawText: string): ParsedCvSections & { header: Ret
   sections.courses = splitListItems(buckets.courses);
 
   if (!sections.profileSummary) {
-    sections.profileSummary = sanitizeInlineText(lines.slice(0, 6).filter((line) => line !== header.name && line !== header.title && !/@/.test(line) && !/\d{7,}/.test(line)).join(' ')) || '';
+    sections.profileSummary =
+      sanitizeInlineText(
+        lines
+          .slice(0, 6)
+          .filter(
+            (line) =>
+              line !== header.name &&
+              line !== header.title &&
+              !/@/.test(line) &&
+              !/\d{7,}/.test(line),
+          )
+          .join(' '),
+      ) || '';
   }
 
   if (!sections.skills.length) {
-    sections.skills = splitListItems(lines.filter((line) => /\b(react|typescript|sprzeda�|sprzedaz|crm|excel|angielski|niemiecki|autocad|spawanie|negocjacje|obs�uga klienta|obsluga klienta)\b/i.test(line)));
+    sections.skills = splitListItems(
+      lines.filter((line) =>
+        /\b(react|typescript|sprzeda\u017c|sprzedaz|crm|excel|angielski|niemiecki|autocad|spawanie|negocjacje|obs\u0142uga klienta|obsluga klienta|mig|tig|spawacz|obr\u00f3bka stali|elektronarz\u0119dzia)\b/i.test(
+          line,
+        ),
+      ),
+    );
   }
 
   return {
@@ -224,10 +265,14 @@ export const segmentCvText = (rawText: string): ParsedCvSections & { header: Ret
   };
 };
 
-export const buildNormalizedCvFromSegments = (rawText: string, additionalContext = ''): NormalizedCvSchema => {
+export const buildNormalizedCvFromSegments = (
+  rawText: string,
+  additionalContext = '',
+): NormalizedCvSchema => {
   const sanitized = sanitizeRawCvText(rawText);
   const segmented = segmentCvText(sanitized);
-  const summary = segmented.profileSummary || sanitizeInlineText(additionalContext) || sanitized.slice(0, 280);
+  const summary =
+    segmented.profileSummary || sanitizeInlineText(additionalContext) || sanitized.slice(0, 280);
   const experience: ExperienceEntry[] = segmented.experience.length
     ? segmented.experience.map((entry) => ({
         company: entry.company || 'Firma do uzupelnienia',
@@ -244,9 +289,17 @@ export const buildNormalizedCvFromSegments = (rawText: string, additionalContext
   }));
 
   return {
-    language: /[����󜿟]/i.test(sanitized) ? 'pl' : 'en',
-    fullName: segmented.header.name || 'Imię i Nazwisko',
-    headline: sanitizeInlineText(additionalContext) || segmented.header.title || segmented.experience[0]?.role || 'Specjalista',
+    language: /[\u0105\u0119\u00f3\u015b\u0142\u017c\u017a\u0107\u0144\u0104\u0118\u00d3\u015a\u0141\u017b\u0179\u0106\u0143]/i.test(
+      sanitized,
+    )
+      ? 'pl'
+      : 'en',
+    fullName: segmented.header.name || 'Imi\u0119 i Nazwisko',
+    headline:
+      sanitizeInlineText(additionalContext) ||
+      segmented.header.title ||
+      segmented.experience[0]?.role ||
+      'Specjalista',
     summary,
     contact: {
       email: segmented.header.email,
