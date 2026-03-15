@@ -92,13 +92,13 @@ export const Step3Result: React.FC<Step3Props> = ({ result, onRestart }) => {
             Podglad Dokumentu (Clean Design)
           </div>
           
-          <div className="flex min-h-[800px] overflow-hidden rounded-[2.3rem] bg-white text-zinc-900 shadow-2xl">
+          <div className="flex min-h-[800px] flex-col overflow-hidden rounded-[2.3rem] bg-white text-zinc-900 shadow-2xl sm:flex-row">
             {/* Paper Sidebar */}
-            <div className="hidden w-[180px] flex-col gap-8 bg-zinc-50/80 p-8 sm:flex border-r border-zinc-100">
-              <div className="space-y-6">
+            <div className="w-full flex-col gap-6 bg-zinc-50/80 p-6 sm:w-[200px] sm:flex sm:p-8 border-b sm:border-b-0 sm:border-r border-zinc-100">
+              <div className="grid grid-cols-1 gap-6 mini:grid-cols-2 sm:grid-cols-1 sm:space-y-6">
                 <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Kontakt</h4>
-                  <div className="mt-3 space-y-3 text-[11px] text-zinc-600">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Dane Kontaktowe</h4>
+                  <div className="mt-3 space-y-2 text-[11px] text-zinc-600">
                     {result.structuredCv.personal?.email && (
                       <div className="flex items-center gap-2">
                         <Mail size={12} className="shrink-0 text-zinc-400" />
@@ -121,9 +121,9 @@ export const Step3Result: React.FC<Step3Props> = ({ result, onRestart }) => {
                 </div>
 
                 <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Kompetencje</h4>
-                  <ul className="mt-3 space-y-2 text-[11px] text-zinc-600">
-                    {result.structuredCv.skills?.slice(0, 12).map((skill) => (
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Umiejetnosci</h4>
+                  <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-600 sm:block sm:space-y-2">
+                    {result.structuredCv.skills?.slice(0, 15).map((skill) => (
                       <li key={skill} className="flex gap-2">
                         <span className="text-blue-500">•</span> {skill}
                       </li>
@@ -136,26 +136,21 @@ export const Step3Result: React.FC<Step3Props> = ({ result, onRestart }) => {
             {/* Paper Main */}
             <div className="flex-1 p-8 sm:p-12">
               <header>
-                <h3 className="text-3xl font-black uppercase tracking-tighter text-zinc-900">{fullName}</h3>
-                <p className="mt-1 text-sm font-bold text-blue-600">{title}</p>
+                <h3 className="text-3xl font-black uppercase tracking-tight text-zinc-900 break-words leading-[1.1]">{fullName}</h3>
+                <p className="mt-2 text-sm font-bold text-blue-600 tracking-wide uppercase">{title}</p>
               </header>
-
-              <div className="mt-8">
-                <h4 className="border-b border-zinc-100 pb-1 text-[11px] font-black uppercase tracking-widest text-zinc-400">Profil</h4>
-                <p className="mt-3 text-[13px] leading-relaxed text-zinc-700">{result.structuredCv.summary}</p>
-              </div>
 
               <div className="mt-8 space-y-10">
                 {displaySections.map((section) => (
                   <div key={section.title}>
                     <h4 className="border-b border-zinc-100 pb-1 text-[11px] font-black uppercase tracking-widest text-zinc-400">{section.title}</h4>
-                    <ul className="mt-4 space-y-6">
+                    <div className="mt-4 space-y-6">
                       {section.items.map((item, idx) => (
-                        <li key={`${section.title}-${idx}`} className="text-[12.5px] leading-relaxed text-zinc-800">
+                        <p key={`${section.title}-${idx}`} className="text-[12.5px] leading-relaxed text-zinc-800 break-words">
                           {item}
-                        </li>
+                        </p>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 ))}
               </div>

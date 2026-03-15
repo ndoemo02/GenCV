@@ -25,9 +25,17 @@ const safeJsonParse = <T>(raw: string): T => {
 const countAiTokens = (response: { usageMetadata?: { totalTokenCount?: number; candidatesTokenCount?: number; promptTokenCount?: number } }) =>
   response.usageMetadata?.totalTokenCount ?? response.usageMetadata?.candidatesTokenCount ?? response.usageMetadata?.promptTokenCount ?? 0;
 
-const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema => ({
-  language: sanitizeInlineText(candidate.language) || (/[^\x00-\x7F]/.test(candidate.summary) ? 'pl' : 'en'),
-  fullName: sanitizeInlineText(candidate.fullName) || 'Imie i Nazwisko',
+const SECTION_HEADERS_REGEX = /^(umiejetnosci|kompetencje|doswiadczenie|wyksztalcenie|edukacja|profil|podsumowanie|hobby|jezyki|skills|experience|education|summary|languages)/i;
+
+const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema => {
+  let fullName = sanitizeInlineText(candidate.fullName);
+  if (fullName && SECTION_HEADERS_REGEX.test(fullName)) {
+    fullName = 'Imie i Nazwisko';
+  }
+
+  return {
+    language: sanitizeInlineText(candidate.language) || (/[^\x00-\x7F]/.test(candidate.summary || '') ? 'pl' : 'en'),
+    fullName: fullName || 'Imie i Nazwisko',
   headline: sanitizeInlineText(candidate.headline),
   summary: sanitizeInlineText(candidate.summary),
   contact: {
@@ -54,7 +62,8 @@ const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema
     }))
     .filter((entry) => entry.institution || entry.degree),
   certifications: sanitizeStringList(candidate.certifications, 10),
-});
+  };
+};
 
 const validateNormalizedCvCandidate = (candidate: NormalizedCvSchema, rawText: string) => {
   const reasons: string[] = [];
