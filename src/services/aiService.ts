@@ -138,23 +138,28 @@ const validateNormalizedCvCandidate = (candidate: NormalizedCvSchema, rawText: s
 export const fallbackNormalizeCv = (rawInput: string, additionalContext = ''): NormalizedCvSchema =>
   sanitizeNormalizedCv(buildNormalizedCvFromSegments(rawInput, additionalContext));
 
-const normalizeGeminiCv = (payload: Partial<NormalizedCvSchema>, rawText: string, additionalContext = ''): NormalizedCvSchema => {
-  const fallback = fallbackNormalizeCv(rawText, additionalContext);
+const normalizeGeminiCv = (payload: Partial<NormalizedCvSchema>): NormalizedCvSchema => {
   return sanitizeNormalizedCv({
-    language: payload.language || fallback.language,
-    fullName: payload.fullName || fallback.fullName,
-    headline: payload.headline || fallback.headline,
-    summary: payload.summary || fallback.summary,
+    language: payload.language || 'pl',
+    fullName: payload.fullName || 'Imię i Nazwisko',
+    headline: payload.headline,
+    summary: payload.summary,
     contact: {
-      email: payload.contact?.email || fallback.contact.email,
-      phone: payload.contact?.phone || fallback.contact.phone,
-      location: payload.contact?.location || fallback.contact.location,
-      links: payload.contact?.links || fallback.contact.links,
+      email: payload.contact?.email,
+      phone: payload.contact?.phone,
+      location: payload.contact?.location,
+      links: payload.contact?.links || [],
     },
-    skills: payload.skills?.length ? payload.skills : fallback.skills,
-    experience: payload.experience?.length ? payload.experience : fallback.experience,
-    education: payload.education ?? fallback.education,
-    certifications: payload.certifications ?? fallback.certifications,
+    skills: payload.skills || [],
+    experience: (payload.experience || []).map(exp => ({
+      company: exp.company,
+      role: exp.role,
+      startDate: exp.startDate,
+      endDate: exp.endDate,
+      bullets: exp.bullets || []
+    })),
+    education: payload.education || [],
+    certifications: payload.certifications || [],
   });
 };
 
@@ -164,72 +169,81 @@ const extractNormalizedCvWithGemini = async (
   additionalContext = '',
 ) => {
   const ai = getGeminiClient();
-  const response = await ai.models.generateContent({
-    model: 'gemini-1.5-pro',
-    contents: { parts },
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          language: { type: Type.STRING },
-          fullName: { type: Type.STRING },
-          headline: { type: Type.STRING },
-          summary: { type: Type.STRING },
-          contact: {
-            type: Type.OBJECT,
-            properties: {
-              email: { type: Type.STRING },
-              phone: { type: Type.STRING },
-              location: { type: Type.STRING },
-              links: { type: Type.ARRAY, items: { type: Type.STRING } },
-            },
-          },
-          skills: { type: Type.ARRAY, items: { type: Type.STRING } },
-          experience: {
-            type: Type.ARRAY,
-            items: {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-1.5-pro',
+      contents: { parts },
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            language: { type: Type.STRING },
+            fullName: { type: Type.STRING },
+            headline: { type: Type.STRING },
+            summary: { type: Type.STRING },
+            contact: {
               type: Type.OBJECT,
               properties: {
-                company: { type: Type.STRING },
-                role: { type: Type.STRING },
-                startDate: { type: Type.STRING },
-                endDate: { type: Type.STRING },
-                bullets: { type: Type.ARRAY, items: { type: Type.STRING } },
+                email: { type: Type.STRING },
+                phone: { type: Type.STRING },
+                location: { type: Type.STRING },
+                links: { type: Type.ARRAY, items: { type: Type.STRING } },
               },
             },
-          },
-          education: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                institution: { type: Type.STRING },
-                degree: { type: Type.STRING },
-                endDate: { type: Type.STRING },
+            skills: { type: Type.ARRAY, items: { type: Type.STRING } },
+            experience: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  company: { type: Type.STRING },
+                  role: { type: Type.STRING },
+                  startDate: { type: Type.STRING },
+                  endDate: { type: Type.STRING },
+                  bullets: { type: Type.ARRAY, items: { type: Type.STRING } },
+                },
               },
             },
+            education: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  institution: { type: Type.STRING },
+                  degree: { type: Type.STRING },
+                  endDate: { type: Type.STRING },
+                },
+              },
+            },
+            certifications: { type: Type.ARRAY, items: { type: Type.STRING } },
           },
-          certifications: { type: Type.ARRAY, items: { type: Type.STRING } },
+          required: ['fullName', 'headline', 'summary', 'skills', 'experience'],
         },
-        required: ['fullName', 'headline', 'summary', 'skills', 'experience'],
       },
-    },
-  });
+    });
 
-  const aiTokens = countAiTokens(response);
-  const parsed = safeJsonParse<Partial<NormalizedCvSchema>>(response.text || '{}');
-  const normalized = normalizeGeminiCv(parsed, fallbackText, additionalContext);
-  const validation = validateNormalizedCvCandidate(normalized, fallbackText);
+    const aiTokens = countAiTokens(response);
+    const parsed = safeJsonParse<Partial<NormalizedCvSchema>>(response.text || '{}');
+    const normalized = normalizeGeminiCv(parsed);
+    const validation = validateNormalizedCvCandidate(normalized, fallbackText);
 
-  logPipeline('ai_normalization', {
-    ai_tokens: aiTokens,
-    structured_sections: countStructuredSections(buildStructuredCvFromNormalized(normalized, additionalContext)),
-    valid: validation.valid,
-    reasons: validation.reasons,
-  });
+    if (validation.valid) {
+      logPipeline('ai_normalization_success', {
+        ai_tokens: aiTokens,
+        structured_sections: countStructuredSections(buildStructuredCvFromNormalized(normalized, additionalContext)),
+      });
+      return normalized;
+    }
 
-  return validation.valid ? normalized : fallbackNormalizeCv(fallbackText, additionalContext);
+    console.warn('[AI] Model zwrocil dane, ale nie przeszly walidacji:', validation.reasons);
+  } catch (err) {
+    console.error('[AI] Blad modelu Gemini:', err);
+  }
+
+  // Fallback tylko w przypadku bledu lub skrajnie slabej jakosci AI
+  console.info('[AI] Uruchamiam fallback OCR parser...');
+  return fallbackNormalizeCv(fallbackText, additionalContext);
 };
 
 export const extractNormalizedCvFromText = async (rawInput: string, additionalContext = ''): Promise<NormalizedCvSchema> => {
@@ -272,15 +286,32 @@ export const extractNormalizedCvFromAsset = async (
   }
 
   try {
+    const prompt = `
+  Jesteś ekspertem HR i systemem ATS. Twoim zadaniem jest wyekstrahowanie i uporządkowanie danych z załączonego CV.
+  
+  INSTRUKCJE:
+  1. Zidentyfikuj Imię i Nazwisko. Zwykle znajduje się na samej górze. 
+     NIGDY nie używaj "UMIEJĘTNOŚCI", "DOŚWIADCZENIE" ani nagłówków sekcji jako nazwiska.
+  2. Podsumowanie zawodowe powinno być zwięzłe (2-4 zdania). Nie kopiuj tam listy umiejętności.
+  3. Umiejętności (skills) muszą być tablicą krótko brzmiących kompetencji.
+  4. Doświadczenie zawodowe musi zawierać daty, firmę i rolę.
+  5. Napraw literówki wynikające z OCR.
+  6. Ignoruj klauzule RODO.
+  7. Zwróć tylko czysty obiekt JSON zgodnie ze schematem.
+
+  ${instruction}
+  `.trim();
+
     return await extractNormalizedCvWithGemini(
       [
         { inlineData: { data: asset.base64, mimeType: asset.mimeType } },
-        { text: `${instruction} KATEGORYCZNE OSTRZEZENIE: Nigdy nie uzywaj naglowkow sekcji (np. DOSWIADCZENIE ZAWODOWE, UMIEJETNOSCI, UMEĘNOŚĆ) jako Imienia i Nazwiska kandydata. Wykryto, ze bierzesz tytuly sekcji zamiast danych. Jesli nie widzisz wyraznie Imienia i Nazwiska w dokumencie (zwykle na samej gorze, duzymi literami), wpisz "Imię i Nazwisko". Zwracaj tylko czysty JSON.` },
+        { text: prompt },
       ],
       sanitizedFallbackText || sanitizeRawCvText(additionalContext),
       additionalContext,
     );
-  } catch {
+  } catch (err) {
+    console.error('[AI] Wyjatek w extractNormalizedCvFromAsset:', err);
     if (fallback) {
       return fallback;
     }
