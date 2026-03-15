@@ -25,25 +25,33 @@ const safeJsonParse = <T>(raw: string): T => {
 const countAiTokens = (response: { usageMetadata?: { totalTokenCount?: number; candidatesTokenCount?: number; promptTokenCount?: number } }) =>
   response.usageMetadata?.totalTokenCount ?? response.usageMetadata?.candidatesTokenCount ?? response.usageMetadata?.promptTokenCount ?? 0;
 
-const SECTION_HEADERS_REGEX = /^(umiejetnosci|kompetencje|doswiadczenie|wyksztalcenie|edukacja|profil|podsumowanie|hobby|jezyki|skills|experience|education|summary|languages)/i;
+const SECTION_HEADERS_REGEX = /(umiejetnosci|kompetencje|doswiadczenie|wyksztalcenie|edukacja|profil|podsumowanie|hobby|jezyki|skills|experience|education|summary|languages|umeęno)/i;
 
 const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema => {
   let fullName = sanitizeInlineText(candidate.fullName);
-  if (fullName && SECTION_HEADERS_REGEX.test(fullName)) {
-    fullName = 'Imie i Nazwisko';
+  
+  // Agresywna filtracja naglowkow i smieci ocr
+  if (fullName) {
+    const isHeader = SECTION_HEADERS_REGEX.test(fullName);
+    const isGarbage = fullName.length > 20 && !fullName.includes(' ');
+    const isTooHeavyUppercase = (fullName.match(/[A-ZĄĘÓŚŁŻŹĆ]/g)?.length ?? 0) > fullName.length * 0.7 && fullName.length > 10;
+    
+    if (isHeader || isGarbage || isTooHeavyUppercase) {
+      fullName = 'Imie i Nazwisko';
+    }
   }
 
   return {
     language: sanitizeInlineText(candidate.language) || (/[^\x00-\x7F]/.test(candidate.summary || '') ? 'pl' : 'en'),
     fullName: fullName || 'Imie i Nazwisko',
-  headline: sanitizeInlineText(candidate.headline),
-  summary: sanitizeInlineText(candidate.summary),
-  contact: {
-    email: sanitizeInlineText(candidate.contact.email),
-    phone: sanitizeInlineText(candidate.contact.phone),
-    location: sanitizeInlineText(candidate.contact.location),
-    links: sanitizeStringList(candidate.contact.links, 6),
-  },
+    headline: sanitizeInlineText(candidate.headline),
+    summary: sanitizeInlineText(candidate.summary),
+    contact: {
+      email: sanitizeInlineText(candidate.contact.email),
+      phone: sanitizeInlineText(candidate.contact.phone),
+      location: sanitizeInlineText(candidate.contact.location),
+      links: sanitizeStringList(candidate.contact.links, 6),
+    },
   skills: sanitizeStringList(candidate.skills, 20),
   experience: candidate.experience
     .map((entry) => ({

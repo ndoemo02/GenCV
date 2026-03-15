@@ -135,9 +135,9 @@ export const Step3Result: React.FC<Step3Props> = ({ result, onRestart }) => {
 
             {/* Paper Main */}
             <div className="flex-1 p-8 sm:p-12">
-              <header>
-                <h3 className="text-3xl font-black uppercase tracking-tight text-zinc-900 break-words leading-[1.1]">{fullName}</h3>
-                <p className="mt-2 text-sm font-bold text-blue-600 tracking-wide uppercase">{title}</p>
+              <header className="overflow-hidden">
+                <h3 className="text-2xl font-black uppercase tracking-tight text-zinc-900 break-all sm:text-3xl sm:break-words leading-[1.1]">{fullName}</h3>
+                <p className="mt-3 text-xs font-bold text-blue-600 tracking-wider uppercase sm:text-sm">{title}</p>
               </header>
 
               <div className="mt-8 space-y-10">
