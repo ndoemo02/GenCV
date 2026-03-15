@@ -294,7 +294,7 @@ export const extractNormalizedCvFromAsset = async (
      NIGDY nie używaj "UMIEJĘTNOŚCI", "DOŚWIADCZENIE" ani nagłówków sekcji jako nazwiska.
   2. Podsumowanie zawodowe powinno być zwięzłe (2-4 zdania). Nie kopiuj tam listy umiejętności.
   3. Umiejętności (skills) muszą być tablicą krótko brzmiących kompetencji.
-  4. Doświadczenie zawodowe musi zawierać daty, firmę i rolę.
+  4. Doświadczenie zawodowe musi zawierać daty, firmę i rolę. Sortuj chronologicznie (najnowsze na górze).
   5. Napraw literówki wynikające z OCR.
   6. Ignoruj klauzule RODO.
   7. Zwróć tylko czysty obiekt JSON zgodnie ze schematem.
