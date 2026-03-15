@@ -16,6 +16,15 @@ interface PdfRendererOptions {
   includeAtsLayer?: boolean;
 }
 
+const colors = {
+  background: rgb(1, 1, 1),
+  sidebar: rgb(0.97, 0.98, 1.0),
+  text: rgb(0.12, 0.14, 0.18),
+  secondaryText: rgb(0.4, 0.45, 0.5),
+  accent: rgb(0.0, 0.35, 0.75),
+  border: rgb(0.9, 0.92, 0.96),
+};
+
 const wrapText = (text: string, maxChars: number) => {
   const words = text.split(' ');
   const lines: string[] = [];
@@ -24,19 +33,14 @@ const wrapText = (text: string, maxChars: number) => {
   for (const word of words) {
     const next = current ? `${current} ${word}` : word;
     if (next.length > maxChars) {
-      if (current) {
-        lines.push(current);
-      }
+      if (current) lines.push(current);
       current = word;
     } else {
       current = next;
     }
   }
 
-  if (current) {
-    lines.push(current);
-  }
-
+  if (current) lines.push(current);
   return lines;
 };
 
@@ -45,7 +49,6 @@ const loadFontBytes = async (fontUrl: string) => {
   if (!response.ok) {
     throw new Error(`Nie udalo sie zaladowac fontu PDF: ${fontUrl}`);
   }
-
   return new Uint8Array(await response.arrayBuffer());
 };
 
@@ -62,53 +65,132 @@ export const renderStructuredPdf = async (
     loadFontBytes(boldFontUrl),
   ]);
 
-  const page = pdfDoc.addPage([595.28, 841.89]);
-  const font = await pdfDoc.embedFont(regularFontBytes, { subset: true });
-  const bold = await pdfDoc.embedFont(boldFontBytes, { subset: true });
-  const displaySections = getStructuredCvDisplaySections(document);
+  const regularFont = await pdfDoc.embedFont(regularFontBytes, { subset: true });
+  const boldFont = await pdfDoc.embedFont(boldFontBytes, { subset: true });
+
   const fullName = getStructuredCvDisplayName(document);
   const title = getStructuredCvDisplayTitle(document);
-  const contactLine = getStructuredCvContactLine(document) || 'FlowAssist Career';
+  const contactLine = getStructuredCvContactLine(document) || 'FlowAssist Pro';
+  const displaySections = getStructuredCvDisplaySections(document);
   const atsKeywords = getStructuredCvAtsKeywords(document);
 
-  page.drawRectangle({ x: 0, y: 0, width: page.getWidth(), height: page.getHeight(), color: rgb(0.04, 0.05, 0.07) });
-  page.drawRectangle({ x: 36, y: 36, width: page.getWidth() - 72, height: page.getHeight() - 72, borderColor: rgb(0.25, 0.25, 0.3), borderWidth: 1 });
-  page.drawText(fullName, { x: 56, y: 780, size: 24, font: bold, color: rgb(0.95, 0.95, 0.95) });
-  page.drawText(title, { x: 56, y: 754, size: 12, font, color: rgb(0.65, 0.67, 0.72) });
-  page.drawText(contactLine, { x: 56, y: 736, size: 10, font, color: rgb(0.78, 0.8, 0.84) });
+  const sidebarWidth = 170;
+  const horizontalMargin = 35;
+  const contentX = sidebarWidth + horizontalMargin;
+  const contentWidth = 595.28 - contentX - horizontalMargin;
 
-  let cursorY = 700;
-  for (const line of wrapText(document.summary || 'Profil kandydata wymaga uzupelnienia.', 80)) {
-    page.drawText(line, { x: 56, y: cursorY, size: 10, font, color: rgb(0.88, 0.88, 0.9) });
+  const drawLayout = (page: any) => {
+    page.drawRectangle({ x: 0, y: 0, width: page.getWidth(), height: page.getHeight(), color: colors.background });
+    page.drawRectangle({ x: 0, y: 0, width: sidebarWidth, height: page.getHeight(), color: colors.sidebar });
+    page.drawLine({
+      start: { x: sidebarWidth, y: 0 },
+      end: { x: sidebarWidth, y: page.getHeight() },
+      thickness: 1,
+      color: colors.border
+    });
+  };
+
+  let page = pdfDoc.addPage([595.28, 841.89]);
+  drawLayout(page);
+
+  let cursorY = 780;
+
+  // Header - Name and Title
+  page.drawText(fullName.toUpperCase(), { x: contentX, y: cursorY, size: 22, font: boldFont, color: colors.text });
+  cursorY -= 26;
+  page.drawText(title, { x: contentX, y: cursorY, size: 12, font: regularFont, color: colors.accent });
+  cursorY -= 45;
+
+  // Sidebar Items
+  let sidebarY = 780;
+  
+  // Contact info in sidebar
+  page.drawText("KONTAKT", { x: horizontalMargin, y: sidebarY, size: 9, font: boldFont, color: colors.accent });
+  sidebarY -= 16;
+  
+  const contactParts = contactLine.split(' | ');
+  for (const part of contactParts) {
+    const lines = wrapText(part, 22);
+    for (const line of lines) {
+      page.drawText(line, { x: horizontalMargin, y: sidebarY, size: 8.5, font: regularFont, color: colors.text });
+      sidebarY -= 11;
+    }
+    sidebarY -= 4;
+  }
+
+  sidebarY -= 20;
+
+  // Skills in sidebar
+  if (document.skills?.length) {
+    page.drawText("KOMPETENCJE", { x: horizontalMargin, y: sidebarY, size: 9, font: boldFont, color: colors.accent });
+    sidebarY -= 16;
+    for (const skill of document.skills) {
+      const lines = wrapText(skill, 20);
+      for (const line of lines) {
+        page.drawText(`• ${line}`, { x: horizontalMargin, y: sidebarY, size: 8.5, font: regularFont, color: colors.secondaryText });
+        sidebarY -= 11;
+      }
+      sidebarY -= 3;
+    }
+  }
+
+  // Main Content - Summary
+  if (document.summary) {
+    page.drawText("PROFIL ZAWODOWY", { x: contentX, y: cursorY, size: 10, font: boldFont, color: colors.accent });
+    cursorY -= 16;
+    const summaryLines = wrapText(document.summary, 65);
+    for (const line of summaryLines) {
+      page.drawText(line, { x: contentX, y: cursorY, size: 9.5, font: regularFont, color: colors.text });
+      cursorY -= 13;
+    }
+    cursorY -= 20;
+  }
+
+  // Main Content - Sections (Experience, Education etc)
+  for (const section of displaySections) {
+    // Check for space before section title
+    if (cursorY < 120) {
+      page = pdfDoc.addPage([595.28, 841.89]);
+      drawLayout(page);
+      cursorY = 800;
+    }
+
+    page.drawText(section.title.toUpperCase(), { x: contentX, y: cursorY, size: 10, font: boldFont, color: colors.accent });
+    page.drawLine({
+      start: { x: contentX, y: cursorY - 3 },
+      end: { x: contentX + contentWidth, y: cursorY - 3 },
+      thickness: 0.5,
+      color: colors.border
+    });
+    cursorY -= 20;
+
+    for (const item of section.items) {
+      const lines = wrapText(item, 62);
+      
+      // Simple overflow check for current section item
+      if (cursorY - (lines.length * 12) < 60) {
+        page = pdfDoc.addPage([595.28, 841.89]);
+        drawLayout(page);
+        cursorY = 800;
+      }
+
+      for (const line of lines) {
+        page.drawText(line, { x: contentX, y: cursorY, size: 9.5, font: regularFont, color: colors.text });
+        cursorY -= 12.5;
+      }
+      cursorY -= 6;
+    }
     cursorY -= 14;
   }
 
-  cursorY -= 10;
-
-  for (const section of displaySections) {
-    page.drawText(section.title.toUpperCase(), { x: 56, y: cursorY, size: 11, font: bold, color: rgb(0.96, 0.96, 0.96) });
-    cursorY -= 18;
-
-    for (const item of section.items) {
-      for (const line of wrapText(item, 78)) {
-        page.drawText(line, { x: 68, y: cursorY, size: 10, font, color: rgb(0.82, 0.84, 0.88) });
-        cursorY -= 13;
-      }
-      cursorY -= 4;
-    }
-
-    cursorY -= 8;
-    if (cursorY < 100) {
-      break;
-    }
-  }
-
+  // Hidden ATS layer
   if (options.includeAtsLayer && atsKeywords.length) {
-    page.drawText(atsKeywords.join(' | '), {
-      x: 20,
-      y: 20,
-      size: 8,
-      font,
+    const finalPage = pdfDoc.getPages()[pdfDoc.getPages().length - 1];
+    finalPage.drawText(atsKeywords.join(' | '), {
+      x: 10,
+      y: 10,
+      size: 5,
+      font: regularFont,
       color: rgb(0, 0, 0),
       opacity: 0,
     });
@@ -117,6 +199,8 @@ export const renderStructuredPdf = async (
   const pdfBytes = await pdfDoc.save();
   logPipeline('pdf_render', {
     pdf_render_time: Math.round(performance.now() - renderStartedAt),
+    pages: pdfDoc.getPages().length,
   });
   return pdfBytes;
 };
+
