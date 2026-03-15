@@ -77,7 +77,7 @@ export interface StructuredCVPersonal {
 export interface StructuredCVExperienceEntry {
   company?: string;
   role?: string;
-  description?: string;
+  bullets?: string[];
   start?: string;
   end?: string;
 }

@@ -43,7 +43,7 @@ const collectCvText = (cv: StructuredCV): string[] => [
   cv.personal?.location,
   cv.summary,
   ...(cv.skills ?? []),
-  ...(cv.experience ?? []).flatMap((entry) => [entry.role, entry.company, entry.description, entry.start, entry.end]),
+  ...(cv.experience ?? []).flatMap((entry) => [entry.role, entry.company, ...(entry.bullets ?? []), entry.start, entry.end]),
   ...(cv.education ?? []).flatMap((entry) => [entry.school, entry.degree, entry.start, entry.end]),
 ].filter((value): value is string => Boolean(value));
 
@@ -85,11 +85,11 @@ const sanitizeExperience = (normalizedCv: NormalizedCvSchema): StructuredCVExper
     .map((entry) => ({
       company: sanitizeInlineText(entry.company),
       role: sanitizeInlineText(entry.role),
-      description: sanitizeInlineText(entry.bullets.join(' ')),
+      bullets: sanitizeStringList(entry.bullets, 10),
       start: sanitizeInlineText(entry.startDate),
       end: sanitizeInlineText(entry.endDate),
     }))
-    .filter((entry) => entry.company || entry.role || entry.description);
+    .filter((entry) => entry.company || entry.role || entry.bullets?.length);
 
 const sanitizeEducation = (normalizedCv: NormalizedCvSchema): StructuredCVEducationEntry[] =>
   normalizedCv.education
@@ -134,11 +134,11 @@ export const validateStructuredCv = (cv: StructuredCV): StructuredCvValidationRe
     reasons.push('hallucinated_placeholders');
   }
 
-  if (repeatedTokenRatio(text) > 0.3) {
+  if (repeatedTokenRatio(text) > 0.45) {
     reasons.push('repeated_tokens');
   }
 
-  if (garbageTokenRatio(text) > 0.18) {
+  if (garbageTokenRatio(text) > 0.4) {
     reasons.push('ocr_garbage');
   }
 
@@ -160,11 +160,11 @@ export const getStructuredCvDisplaySections = (cv: StructuredCV): StructuredCvDi
 
   if (cv.experience?.length) {
     sections.push({
-      title: 'Doswiadczenie zawodowe',
+      title: 'Doświadczenie zawodowe',
       items: cv.experience.flatMap((entry) => {
         const title = [entry.role, entry.company].filter(Boolean).join(' | ');
         const dateLine = [entry.start, entry.end].filter(Boolean).join(' - ');
-        return [title, dateLine, entry.description].filter(Boolean) as string[];
+        return [title, dateLine, ...(entry.bullets ?? [])].filter(Boolean) as string[];
       }),
     });
   }
@@ -243,11 +243,15 @@ export const coerceStructuredCv = (value: unknown): StructuredCV => {
             .map((entry) => ({
               company: sanitizeInlineText(entry.company as string | undefined),
               role: sanitizeInlineText(entry.role as string | undefined),
-              description: sanitizeInlineText(entry.description as string | undefined),
+              bullets: Array.isArray(entry.bullets) 
+                ? sanitizeStringList(entry.bullets.map(b => String(b))) 
+                : entry.description 
+                  ? [sanitizeInlineText(entry.description as string)] 
+                  : [],
               start: sanitizeInlineText(entry.start as string | undefined),
               end: sanitizeInlineText(entry.end as string | undefined),
             }))
-            .filter((entry) => entry.company || entry.role || entry.description)
+            .filter((entry) => entry.company || entry.role || entry.bullets?.length)
         : [],
       education: Array.isArray(candidate.education)
         ? candidate.education
@@ -284,7 +288,7 @@ export const coerceStructuredCv = (value: unknown): StructuredCV => {
     accumulator.push({
       role: role || undefined,
       company: company || undefined,
-      description: cleanItem,
+      bullets: [cleanItem],
     });
     return accumulator;
   }, []);

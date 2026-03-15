@@ -160,11 +160,11 @@ const buildExperience = (lines: string[]): ParsedCvSectionExperience[] => {
   return entries.map((entry) => ({
     company: sanitizeInlineText(entry.company),
     role: sanitizeInlineText(entry.role),
-    description: sanitizeInlineText(entry.description),
+    bullets: entry.description ? [sanitizeInlineText(entry.description)] : [],
     start: sanitizeInlineText(entry.start),
     end: sanitizeInlineText(entry.end),
   }));
-};
+}
 
 const buildEducation = (lines: string[]): ParsedCvSectionEducation[] => {
   const items: ParsedCvSectionEducation[] = [];
@@ -274,12 +274,12 @@ export const buildNormalizedCvFromSegments = (
   const summary =
     segmented.profileSummary || sanitizeInlineText(additionalContext) || sanitized.slice(0, 280);
   const experience: ExperienceEntry[] = segmented.experience.length
-    ? segmented.experience.map((entry) => ({
+    ? segmented.experience.map((entry: any) => ({
         company: entry.company || 'Firma do uzupelnienia',
         role: entry.role || 'Stanowisko do uzupelnienia',
         startDate: entry.start,
         endDate: entry.end,
-        bullets: sanitizeStringList([entry.description], 4),
+        bullets: entry.bullets || [],
       }))
     : [];
   const education: EducationEntry[] = segmented.education.map((entry) => ({

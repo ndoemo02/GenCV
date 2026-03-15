@@ -25,14 +25,15 @@ const colors = {
   border: rgb(0.9, 0.92, 0.96),
 };
 
-const wrapText = (text: string, maxChars: number) => {
+const wrapText = (text: string, maxWidth: number, font: any, fontSize: number) => {
   const words = text.split(' ');
   const lines: string[] = [];
   let current = '';
 
   for (const word of words) {
     const next = current ? `${current} ${word}` : word;
-    if (next.length > maxChars) {
+    const width = font.widthOfTextAtSize(next, fontSize);
+    if (width > maxWidth) {
       if (current) lines.push(current);
       current = word;
     } else {
@@ -110,7 +111,7 @@ export const renderStructuredPdf = async (
   
   const contactParts = contactLine.split(' | ');
   for (const part of contactParts) {
-    const lines = wrapText(part, 24);
+    const lines = wrapText(part, sidebarWidth - 2 * horizontalMargin, regularFont, 8);
     for (const line of lines) {
       if (sidebarY < 40) break;
       page.drawText(line, { x: horizontalMargin, y: sidebarY, size: 8, font: regularFont, color: colors.text });
@@ -126,10 +127,11 @@ export const renderStructuredPdf = async (
     page.drawText("KOMPETENCJE", { x: horizontalMargin, y: sidebarY, size: 8.5, font: boldFont, color: colors.accent });
     sidebarY -= 14;
     for (const skill of document.skills) {
-      const lines = wrapText(skill, 22);
-      for (const line of lines) {
+      const lines = wrapText(skill, sidebarWidth - 2 * horizontalMargin - 10, regularFont, 8);
+      for (const [index, line] of lines.entries()) {
         if (sidebarY < 30) break;
-        page.drawText(`• ${line}`, { x: horizontalMargin, y: sidebarY, size: 8, font: regularFont, color: colors.text });
+        const prefix = index === 0 ? '• ' : '  ';
+        page.drawText(`${prefix}${line}`, { x: horizontalMargin, y: sidebarY, size: 8, font: regularFont, color: colors.text });
         sidebarY -= 10;
       }
       sidebarY -= 2;
@@ -156,7 +158,12 @@ export const renderStructuredPdf = async (
     cursorY -= 20;
 
     for (const item of section.items) {
-      const lines = wrapText(item, 62);
+      const isBullet = section.title.toLowerCase().includes('doświadczenie') && !item.includes(' | ') && !item.includes(' - ');
+      const fontSize = 9.5;
+      const indent = isBullet ? 12 : 0;
+      const maxWidth = contentWidth - indent;
+      
+      const lines = wrapText(item, maxWidth, regularFont, fontSize);
       
       // Simple overflow check for current section item
       if (cursorY - (lines.length * 12) < 60) {
@@ -165,8 +172,9 @@ export const renderStructuredPdf = async (
         cursorY = 800;
       }
 
-      for (const line of lines) {
-        page.drawText(line, { x: contentX, y: cursorY, size: 9.5, font: regularFont, color: colors.text });
+      for (const [index, line] of lines.entries()) {
+        const prefix = (isBullet && index === 0) ? '• ' : '';
+        page.drawText(`${prefix}${line}`, { x: contentX + indent, y: cursorY, size: fontSize, font: regularFont, color: colors.text });
         cursorY -= 12.5;
       }
       cursorY -= 6;

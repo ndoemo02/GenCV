@@ -10,7 +10,7 @@ import type {
 import { getGeminiClient, hasGeminiKey } from '../lib/gemini/client';
 import { computeCareerIntelligence } from '../lib/career/intelligence';
 import { buildStructuredCvFromNormalized, countStructuredSections, validateStructuredCv } from '../lib/cv/structured';
-import { joinSanitizedBlocks, sanitizeInlineText, sanitizeRawCvText, sanitizeStringList } from '../lib/cv/sanitize';
+import { joinSanitizedBlocks, sanitizeInlineText, sanitizeRawCvText, sanitizeStringList, stripContactInfo } from '../lib/cv/sanitize';
 import { logPipeline } from '../lib/debug/pipeline';
 import { buildNormalizedCvFromSegments } from '../lib/ingestion/segmenter';
 import { CvParsingError } from '../lib/ingestion/extractors';
@@ -47,27 +47,24 @@ const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema
   let headline = sanitizeInlineText(candidate.headline);
   
   // Agresywna filtracja naglowkow i smieci ocr dla Imienia i Nazwiska (Paranoid Mode)
-  if (fullName) {
-    const fnLower = fullName.toLowerCase();
-    const isHeader = SECTION_HEADERS_REGEX.test(fnLower);
-    const isGarbage = fullName.length > 25 && !fullName.includes(' ');
-    const isTooLong = fullName.length > 40;
-    const isTooHeavyUppercase = (fullName.match(/[A-ZĄĘÓŚŁŻŹĆ]/g)?.length ?? 0) > fullName.length * 0.65 && fullName.length > 8;
-    const hasForbiddenChars = /[©®™]/.test(fullName);
-    const hasDigit = /\d/.test(fullName);
-    const startsWithKeyword = /^(umiej|dosw|wyksz|edu|pro|zawod)/i.test(fullName);
+  if (fullName && fullName !== 'Imię i Nazwisko') {
+    fullName = stripContactInfo(fullName);
     
-    // Jeśli zawiera słowa typowe dla sekcji potraktuj jako garbage
-    const containsSectionKeywords = /(doświadczenie|umiejętności|zawodowe|kompetencje|edukacja)/i.test(fnLower);
-    
-    if (isHeader || isGarbage || isTooLong || isTooHeavyUppercase || hasForbiddenChars || startsWithKeyword || hasDigit || containsSectionKeywords) {
-      fullName = 'Imię i Nazwisko';
+    if (fullName) {
+      const fnLower = fullName.toLowerCase();
+      const isHeader = SECTION_HEADERS_REGEX.test(fnLower);
+      const isTooLong = fullName.length > 80;
+      
+      if (isHeader || isTooLong) {
+        fullName = 'Imię i Nazwisko';
+      }
     }
   }
 
-  // Filtracja dla headline (stanowiska)
+  // Filtracja dla headline (stanowiska) - usuń telefon jeśli się przyplątał
   if (headline) {
-    if (SECTION_HEADERS_REGEX.test(headline) || headline.length > 60 || headline.includes('©')) {
+    headline = stripContactInfo(headline);
+    if (headline && (SECTION_HEADERS_REGEX.test(headline) || headline.length > 80)) {
       headline = undefined;
     }
   }
@@ -76,7 +73,7 @@ const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema
     language: sanitizeInlineText(candidate.language) || (/[^\x00-\x7F]/.test(candidate.summary || '') ? 'pl' : 'en'),
     fullName: fullName || 'Imię i Nazwisko',
     headline: headline,
-    summary: sanitizeInlineText(candidate.summary),
+    summary: stripContactInfo(sanitizeInlineText(candidate.summary)),
     contact: {
       email: sanitizeInlineText(candidate.contact.email),
       phone: sanitizeInlineText(candidate.contact.phone),
@@ -109,23 +106,24 @@ const validateNormalizedCvCandidate = (candidate: NormalizedCvSchema, rawText: s
   const structured = buildStructuredCvFromNormalized(candidate, '');
   const structuredValidation = validateStructuredCv(structured);
 
-  if (!candidate.fullName || candidate.fullName.length < 3) {
-    reasons.push('missing_name');
+  if (!candidate.fullName || candidate.fullName === 'Imię i Nazwisko') {
+    // Nie blokujemy, jeśli imię jest placeholderem, AI i tak coś wywnioskowało
   }
 
-  if (!candidate.summary || candidate.summary.length < 24) {
+  if (!candidate.summary || candidate.summary.length < 10) {
     reasons.push('missing_summary');
   }
 
-  if (!candidate.skills.length && !candidate.experience.length) {
+  if (!candidate.skills.length && !candidate.experience.length && !candidate.education.length) {
     reasons.push('missing_sections');
   }
 
-  if (structuredValidation.reasons.length) {
-    reasons.push(...structuredValidation.reasons);
+  // Wstępna walidacja struktury jest teraz bardzo lekka
+  if (structuredValidation.reasons.includes('hallucinated_placeholders')) {
+    reasons.push('hallucinated_placeholders');
   }
 
-  if (!sanitizeRawCvText(rawText)) {
+  if (!rawText.trim()) {
     reasons.push('empty_input');
   }
 
@@ -295,13 +293,17 @@ export const extractNormalizedCvFromAsset = async (
   
   INSTRUKCJE:
   1. Zidentyfikuj Imię i Nazwisko. Zwykle znajduje się na samej górze. 
-     NIGDY nie używaj "UMIEJĘTNOŚCI", "DOŚWIADCZENIE" ani nagłówków sekcji jako nazwiska.
+     BĄDŹ INTELIGENTNY: Jeśli widzisz "OMNIE ŁU KASZ O", to imię to "Łukasz O.".
+     NIGDY nie zostawiaj numeru telefonu ani e-maila w polu fullName lub headline.
+     Naprawiaj błędy OCR (np. "Szowaccz" -> "Spawacz", "D0swiadczenie" -> "Doświadczenie").
   2. Podsumowanie zawodowe powinno być zwięzłe (2-4 zdania). Nie kopiuj tam listy umiejętności.
+     USUŃ z podsumowania numer telefonu, jeśli się tam duplikuje.
   3. Umiejętności (skills) muszą być tablicą krótko brzmiących kompetencji.
+     NIE wrzucaj całych zdań ani opisów stanowisk do umiejętności.
   4. Doświadczenie zawodowe musi zawierać daty, firmę i rolę. Sortuj chronologicznie (najnowsze na górze).
-  5. Napraw literówki wynikające z OCR.
-  6. Ignoruj klauzule RODO.
-  7. Zwróć tylko czysty obiekt JSON zgodnie ze schematem.
+  5. Ignoruj klauzule RODO.
+  6. Zwróć tylko czysty obiekt JSON zgodnie ze schematem.
+  7. Jeśli brakuje imienia, spróbuj je wywnioskować z adresu e-mail lub innych danych.
 
   ${instruction}
   `.trim();

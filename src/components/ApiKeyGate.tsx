@@ -20,6 +20,8 @@ const Spotlight = () => (
 export const ApiKeyGate: React.FC<{ onKeySelected: () => void }> = ({ onKeySelected }) => {
   const [loading, setLoading] = useState(true);
   const [hasKey, setHasKey] = useState(false);
+  const [manualKey, setManualKey] = useState('');
+  const [showInput, setShowInput] = useState(false);
 
   useEffect(() => {
     const checkKey = async () => {
@@ -34,9 +36,18 @@ export const ApiKeyGate: React.FC<{ onKeySelected: () => void }> = ({ onKeySelec
         }
       }
 
-      // 2. Check environment variable (for local dev)
+      // 2. Check localStorage
+      const storedKey = localStorage.getItem('GEMINI_API_KEY');
+      if (storedKey && storedKey.length > 20) {
+        setHasKey(true);
+        onKeySelected();
+        setLoading(false);
+        return;
+      }
+
+      // 3. Check environment variable (for local dev)
       const localKey = (process.env as any).GEMINI_API_KEY;
-      if (localKey && localKey !== "MY_GEMINI_API_KEY" && localKey !== "") {
+      if (localKey && localKey !== "MY_GEMINI_API_KEY" && localKey !== "" && localKey !== undefined) {
         setHasKey(true);
         onKeySelected();
       }
@@ -49,6 +60,17 @@ export const ApiKeyGate: React.FC<{ onKeySelected: () => void }> = ({ onKeySelec
   const handleSelectKey = async () => {
     if (window.aistudio?.openSelectKey) {
       await window.aistudio.openSelectKey();
+      setHasKey(true);
+      onKeySelected();
+    } else {
+      setShowInput(true);
+    }
+  };
+
+  const handleSaveManualKey = () => {
+    if (manualKey.length > 20) {
+      localStorage.setItem('GEMINI_API_KEY', manualKey);
+      (window as any).GEMINI_API_KEY = manualKey;
       setHasKey(true);
       onKeySelected();
     }
@@ -98,20 +120,38 @@ export const ApiKeyGate: React.FC<{ onKeySelected: () => void }> = ({ onKeySelec
 
           <h1 className="text-white text-2xl font-black tracking-tight uppercase mb-4">Wymagana Autoryzacja</h1>
           <p className="text-zinc-500 text-[11px] leading-relaxed uppercase tracking-[0.2em] mb-10">
-            Aby korzystać z protokołów Gemini 3.1 Pro, wymagany jest aktywny klucz AI Studio.
+            Aby korzystać z protokołów Gemini 2.0 Flash, wymagany jest aktywny klucz AI Studio.
           </p>
 
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleSelectKey}
-            className="group relative bg-white text-black px-12 py-5 rounded-full overflow-hidden transition-all shadow-[0_20px_60px_-10px_rgba(255,255,255,0.2)]"
-          >
-            <span className="relative z-10 font-black text-sm tracking-widest uppercase flex items-center gap-3">
-              Podłącz klucz API <Key size={18} />
-            </span>
-            <div className="absolute inset-0 bg-gradient-to-tr from-zinc-200 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          </motion.button>
+          {!showInput ? (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleSelectKey}
+              className="group relative bg-white text-black px-12 py-5 rounded-full overflow-hidden transition-all shadow-[0_20px_60px_-10px_rgba(255,255,255,0.2)]"
+            >
+              <span className="relative z-10 font-black text-sm tracking-widest uppercase flex items-center gap-3">
+                {window.aistudio ? 'Podłącz klucz (AI Studio)' : 'Wprowadź klucz API'} <Key size={18} />
+              </span>
+              <div className="absolute inset-0 bg-gradient-to-tr from-zinc-200 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            </motion.button>
+          ) : (
+            <div className="flex flex-col gap-4 w-full">
+              <input
+                type="password"
+                placeholder="Wklej klucz API (AI_...)"
+                value={manualKey}
+                onChange={(e) => setManualKey(e.target.value)}
+                className="bg-zinc-900 border border-white/10 rounded-xl px-4 py-4 text-white text-sm focus:outline-none focus:border-white/40"
+              />
+              <button
+                onClick={handleSaveManualKey}
+                className="bg-white text-black font-black uppercase text-xs tracking-widest py-4 rounded-xl shadow-xl active:scale-95 transition-all"
+              >
+                Autoryzuj sesję
+              </button>
+            </div>
+          )}
         </motion.div>
       </main>
 
