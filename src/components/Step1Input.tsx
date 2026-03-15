@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { ArrowRight, ChevronDown, CircleHelp, Plus, Upload } from 'lucide-react';
 import type { Step1Submission, UploadedAsset } from '../types';

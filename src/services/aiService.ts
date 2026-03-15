@@ -25,7 +25,7 @@ const safeJsonParse = <T>(raw: string): T => {
 const countAiTokens = (response: { usageMetadata?: { totalTokenCount?: number; candidatesTokenCount?: number; promptTokenCount?: number } }) =>
   response.usageMetadata?.totalTokenCount ?? response.usageMetadata?.candidatesTokenCount ?? response.usageMetadata?.promptTokenCount ?? 0;
 
-const SECTION_HEADERS_REGEX = /(umiejetnosci|kompetencje|doswiadczenie|wyksztalcenie|edukacja|profil|podsumowanie|hobby|jezyki|skills|experience|education|summary|languages|umeęno)/i;
+const SECTION_HEADERS_REGEX = /(umiejetnosci|umiejętności|umiej|umeęno|kompetencje|doswiadczenie|doświadczenie|dosw|dośw|wyksztalcenie|wykształcenie|edukacja|profil|podsumowanie|hobby|jezyki|języki|skills|experience|education|summary|languages|clausula|klauzula|contact|kontakt)/i;
 
 const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema => {
   let fullName = sanitizeInlineText(candidate.fullName);
@@ -38,8 +38,9 @@ const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema
     const isTooLong = fullName.length > 45;
     const isTooHeavyUppercase = (fullName.match(/[A-ZĄĘÓŚŁŻŹĆ]/g)?.length ?? 0) > fullName.length * 0.7 && fullName.length > 10;
     const hasForbiddenChars = /[©®™]/.test(fullName);
+    const startsWithKeyword = /^(umiej|dosw|wyksz|edu|pro)/i.test(fullName);
     
-    if (isHeader || isGarbage || isTooLong || isTooHeavyUppercase || hasForbiddenChars) {
+    if (isHeader || isGarbage || isTooLong || isTooHeavyUppercase || hasForbiddenChars || startsWithKeyword) {
       fullName = 'Imię i Nazwisko';
     }
   }
@@ -255,7 +256,7 @@ export const extractNormalizedCvFromAsset = async (
     return await extractNormalizedCvWithGemini(
       [
         { inlineData: { data: asset.base64, mimeType: asset.mimeType } },
-        { text: `${instruction} UWAGA: Nigdy nie uzywaj naglowkow sekcji (np. DOSWIADCZENIE, UMIEJETNOSCI) jako Imienia i Nazwiska kandydata. Jesli nie widac imienia, wpisz "Imię i Nazwisko". Zwracaj tylko JSON zgodny ze schematem CV.` },
+        { text: `${instruction} UWAGA: Nigdy nie uzywaj naglowkow sekcji (np. DOSWIADCZENIE, UMIEJETNOSCI, UMEĘNOŚĆ) jako Imienia i Nazwiska kandydata. Jesli nie widac imienia i nazwiska w dokumencie, kategorycznie wpisz "Imię i Nazwisko". Zwracaj tylko JSON zgodny ze schematem CV.` },
       ],
       sanitizedFallbackText || sanitizeRawCvText(additionalContext),
       additionalContext,
