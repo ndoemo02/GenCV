@@ -18,11 +18,11 @@ interface PdfRendererOptions {
 
 const colors = {
   background: rgb(1, 1, 1),
-  sidebar: rgb(0.97, 0.98, 1.0),
-  text: rgb(0.12, 0.14, 0.18),
-  secondaryText: rgb(0.4, 0.45, 0.5),
-  accent: rgb(0.0, 0.35, 0.75),
-  border: rgb(0.9, 0.92, 0.96),
+  sidebar: rgb(0.98, 0.98, 0.99),
+  text: rgb(0.08, 0.1, 0.15),          // Deep dark blue-grey
+  secondaryText: rgb(0.45, 0.48, 0.52),
+  accent: rgb(0.05, 0.2, 0.5),         // Deep professional blue
+  border: rgb(0.94, 0.95, 0.97),
 };
 
 const wrapText = (text: string, maxWidth: number, font: any, fontSize: number) => {

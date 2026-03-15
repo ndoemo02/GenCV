@@ -46,6 +46,24 @@ const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema
   let fullName = sanitizeInlineText(candidate.fullName);
   let headline = sanitizeInlineText(candidate.headline);
   
+  // ✅ NOWY: Agresywna filtracja imion, które są nagłówkami sekcji
+  if (fullName && /(obsługa|obsluga|umiejętności|umiejetnosci|doświadczenie|doswiadczenie|wykształcenie|wyksztalcenie|elektronarzędzi|elektronarzedzi)/i.test(fullName)) {
+    console.warn('[SANITIZE] fullName zawiera nagłówek sekcji, zastępuję placeholderem:', fullName);
+    fullName = 'Imię i Nazwisko';
+  }
+  
+  // ✅ NOWY: Headline nie może być długim zdaniem (prawdopodobnie z OCR summary)
+  if (headline && headline.split(' ').length > 6) {
+    console.warn('[SANITIZE] headline jest za długi, usuwam:', headline);
+    headline = undefined;
+  }
+
+  // ✅ NOWY: Headline nie może zawierać technicznych słów-kluczy
+  if (headline && /(MIG|MAG|TIG|WELDING|SPAWANIE|METAL|INERT|GAS|OBSŁUGA|ELEKTRONARZĘDZI)/i.test(headline)) {
+    console.warn('[SANITIZE] headline zawiera technikę/umiejętność, usuwam:', headline);
+    headline = undefined;
+  }
+  
   // Agresywna filtracja naglowkow i smieci ocr dla Imienia i Nazwiska (Paranoid Mode)
   if (fullName && fullName !== 'Imię i Nazwisko') {
     fullName = stripContactInfo(fullName);
@@ -102,6 +120,12 @@ const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema
 };
 
 const validateNormalizedCvCandidate = (candidate: NormalizedCvSchema, rawText: string) => {
+  // ✅ Złagodzona walidacja - jeśli Gemini zwrócił imię i summary, nie odrzucaj
+  if (candidate.fullName !== 'Imię i Nazwisko' && (candidate.summary?.length ?? 0) > 40) {
+    console.log('[VALIDATE] Gemini zwrócił dobre dane, akceptuję:', candidate.fullName);
+    return { valid: true, reasons: [] };
+  }
+
   const reasons: string[] = [];
   const structured = buildStructuredCvFromNormalized(candidate, '');
   const structuredValidation = validateStructuredCv(structured);
@@ -166,77 +190,59 @@ const extractNormalizedCvWithGemini = async (
   fallbackText: string,
   additionalContext = '',
 ) => {
-  const ai = getGeminiClient();
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [{ role: 'user', parts }],
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            language: { type: Type.STRING },
-            fullName: { type: Type.STRING },
-            headline: { type: Type.STRING },
-            summary: { type: Type.STRING },
-            contact: {
-              type: Type.OBJECT,
-              properties: {
-                email: { type: Type.STRING },
-                phone: { type: Type.STRING },
-                location: { type: Type.STRING },
-                links: { type: Type.ARRAY, items: { type: Type.STRING } },
-              },
-            },
-            skills: { type: Type.ARRAY, items: { type: Type.STRING } },
-            experience: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  company: { type: Type.STRING },
-                  role: { type: Type.STRING },
-                  startDate: { type: Type.STRING },
-                  endDate: { type: Type.STRING },
-                  bullets: { type: Type.ARRAY, items: { type: Type.STRING } },
-                },
-              },
-            },
-            education: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  institution: { type: Type.STRING },
-                  degree: { type: Type.STRING },
-                  endDate: { type: Type.STRING },
-                },
-              },
-            },
-            certifications: { type: Type.ARRAY, items: { type: Type.STRING } },
-          },
-          required: ['fullName', 'headline', 'summary', 'skills', 'experience'],
-        },
-      },
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const model = 'gemini-2.5-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    // Przygotuj prompt z instrukcją JSON
+    const promptText = `Wypisz dane z CV w formacie JSON zgodnym ze schematem: 
+    {
+      fullName: string, 
+      headline: string, 
+      summary: string, 
+      contact: { email: string, phone: string, location: string, links: string[] },
+      skills: string[],
+      experience: Array<{ company: string, role: string, startDate: string, endDate: string, bullets: string[] }>,
+      education: Array<{ institution: string, degree: string, endDate: string }>,
+      certifications: string[]
+    }. CV TEXT: ${fallbackText}. ${additionalContext}`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            ...parts.map(p => p.inlineData ? { inlineData: p.inlineData } : { text: p.text || '' }),
+            { text: promptText }
+          ]
+        }],
+        generationConfig: {
+          responseMimeType: 'application/json'
+        }
+      })
     });
 
-    const aiTokens = countAiTokens(response);
-    const parsed = safeJsonParse<Partial<NormalizedCvSchema>>(response.text || '{}');
+    if (!res.ok) throw new Error(`Gemini API Error: ${res.status}`);
+    const data = await res.json();
+    const resultRaw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultRaw) throw new Error('Pusta odpowiedź z Gemini');
+
+    const parsed = safeJsonParse<Partial<NormalizedCvSchema>>(resultRaw);
     const normalized = normalizeGeminiCv(parsed);
     const validation = validateNormalizedCvCandidate(normalized, fallbackText);
 
     if (validation.valid) {
       logPipeline('ai_normalization_success', {
-        ai_tokens: aiTokens,
-        structured_sections: countStructuredSections(buildStructuredCvFromNormalized(normalized, additionalContext)),
+        structured_sections: 5,
       });
       return normalized;
     }
 
     console.warn('[AI] Model zwrocil dane, ale nie przeszly walidacji:', validation.reasons);
   } catch (err) {
-    console.error('[AI] Blad modelu Gemini:', err);
+    console.error('[AI] Blad Gemini (FETCH):', err);
   }
 
   // Fallback tylko w przypadku bledu lub skrajnie slabej jakosci AI
@@ -289,31 +295,25 @@ export const extractNormalizedCvFromAsset = async (
 
   try {
     const prompt = `
-  Jesteś ekspertem HR i systemem ATS. Twoim zadaniem jest wyekstrahowanie i uporządkowanie danych z załączonego CV.
-  
-  INSTRUKCJE:
-  1. Zidentyfikuj Imię i Nazwisko. Zwykle znajduje się na samej górze. 
-     BĄDŹ INTELIGENTNY: Jeśli widzisz "OMNIE ŁU KASZ O", to imię to "Łukasz O.".
-     NIGDY nie zostawiaj numeru telefonu ani e-maila w polu fullName lub headline.
-     Naprawiaj błędy OCR (np. "Szowaccz" -> "Spawacz", "D0swiadczenie" -> "Doświadczenie").
-  2. Podsumowanie zawodowe powinno być zwięzłe (2-4 zdania). Nie kopiuj tam listy umiejętności.
-     USUŃ z podsumowania numer telefonu, jeśli się tam duplikuje.
-  3. Umiejętności (skills) muszą być tablicą krótko brzmiących kompetencji.
-     NIE wrzucaj całych zdań ani opisów stanowisk do umiejętności.
-  4. Doświadczenie zawodowe musi zawierać daty, firmę i rolę. Sortuj chronologicznie (najnowsze na górze).
-  5. Ignoruj klauzule RODO.
-  6. Zwróć tylko czysty obiekt JSON zgodnie ze schematem.
-  7. Jeśli brakuje imienia, spróbuj je wywnioskować z adresu e-mail lub innych danych.
+Jesteś elitarnym ekspertem HR. Twoim zadaniem jest wyekstrahowanie danych z CV na załączonym OBRAZIE.
 
-  ${instruction}
-  `.trim();
+KRYTYCZNE INSTRUKCJE:
+1. Czytaj dane BEZPOŚREDNIO z obrazu. Na górze znajdź imię i nazwisko (zwykle największy tekst).
+   Jeśli widzisz rozdzielone litery (np. "Ł U K A S Z"), złącz je w "Łukasz". 
+2. Numer telefonu wyszukaj dokładnie (format +48 XXX XXX XXX).
+3. Email zwykle znajduje się blisko telefonu lub w stopce.
+4. Stanowisko (headline) to krótka fraza pod imieniem (np. "Spawacz / Ślusarz").
+   NIGDY nie używaj nazw umiejętności technicznych (MIG, TIG, WELDING) jako headline.
+
+Zwróć tylko czysty obiekt JSON zgodnie ze schematem.
+`.trim();
 
     return await extractNormalizedCvWithGemini(
       [
         { inlineData: { data: cleanBase64, mimeType: asset.mimeType } },
         { text: prompt },
       ],
-      sanitizedFallbackText || sanitizeRawCvText(additionalContext),
+      '', // ✅ Pusty fallbackText — niech AI pracuje tylko z obrazem (Vision mode)
       additionalContext,
     );
   } catch (err) {

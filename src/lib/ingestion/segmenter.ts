@@ -1,5 +1,5 @@
 import type { EducationEntry, ExperienceEntry, NormalizedCvSchema, ParsedCvSectionEducation, ParsedCvSectionExperience, ParsedCvSections } from '../../types';
-import { sanitizeHeadline, sanitizeInlineText, sanitizeRawCvText, sanitizeStringList } from '../cv/sanitize';
+import { normalizePhone, sanitizeHeadline, sanitizeInlineText, sanitizeRawCvText, sanitizeStringList } from '../cv/sanitize';
 
 const SECTION_PATTERNS: Array<{ key: keyof ParsedCvSections; pattern: RegExp }> = [
   { key: 'profileSummary', pattern: /^(profil|o mnie|podsumowanie|profil zawodowy)$/i },
@@ -23,29 +23,90 @@ const uniqueLines = (rawText: string) =>
 
 const detectSection = (line: string) => SECTION_PATTERNS.find((entry) => entry.pattern.test(line))?.key;
 
-const HEADER_KEYWORDS_BLACKLIST = /(umiejetnosci|umiej\u0119tno\u015bci|doswiadczenie|do\u015bwiadczenie|wyksztalcenie|wykszta\u0142cenie|profil|podsumowanie|hobby|jezyki|j\u0119zyki|skills|experience|education|summary|languages|clausula|klauzula|contact|kontakt|urodzenia|urodz|miejscowosc|adres|zainteresowania|szkolenia|kursy)/i;
+const HEADER_KEYWORDS_BLACKLIST = /(umiejetnosci|umiejętności|obsługa|obsluga|elektronarzędzi|elektronarzedzi|metal|inert|gas|mig|mag|tig|welding|doswiadczenie|doświadczenie|wyksztalcenie|wykształcenie|wykszt|edukacja|profil|podsumowanie|hobby|jezyki|języki|skills|experience|education|summary|languages|clausula|klauzula|contact|kontakt|urodzenia|urodz|miejscowosc|adres|zainteresowania|szkolenia|kursy|ire\s*pj|sp\. z|kaastel|metaal)/i;
 
 const collectHeader = (lines: string[]) => {
-  const top = lines.slice(0, 10);
+  // ✅ Rozszerzony zakres skanowania dla dokumentów z dużym marginesem
+  const top = lines.slice(0, 20);
+  
   const email = top.find((line) => /@/.test(line));
-  const phone = top.find((line) => /\+?\d[\d\s()-]{7,}\d/.test(line));
+  
+  // ✅ Izoluj SAM numer telefonu, nie całą linię
+  const phoneMatch = top.join(' ').match(/\+?\d[\d\s()-]{7,}\d/);
+  const phone = normalizePhone(phoneMatch?.[0]);
+  
   const location = top.find((line) =>
     /(warszawa|krak\u00f3w|krakow|wroc\u0142aw|wroclaw|gda\u0144sk|gdansk|pozna\u0144|poznan|berlin|remote|polska|poland|piekary|\u015bl\u0105sk)/i.test(line)
   );
 
+  // ✅ Priorytet dla ALL CAPS (częste w OCR, np. "ŁUKASZ NOWAK")
+  // Szukaj linii ALL CAPS i jeśli są 2-3 pod rząd, złącz je
+  const allCapsLines = top.filter((line) =>
+    /^[A-ZŁŚŻŹĆŃÓĄĘ]{2,}(\s+[A-ZŁŚŻŹĆŃÓĄĘ]{2,})*$/u.test(line) &&
+    !HEADER_KEYWORDS_BLACKLIST.test(line) &&
+    line.length < 50 &&
+    line.length > 2
+  );
+
+  const nameAllCaps = allCapsLines.length >= 2 && allCapsLines.length <= 3
+    ? allCapsLines.join(' ')
+    : allCapsLines[0];
+
+  // Fallback: typowy wzorzec "Imię Nazwisko"
   const nameCandidate = top.find((line) =>
     /^[A-Z][a-z\u00f3\u0105\u0107\u0119\u0142\u0144\u015b\u017a\u017c][\p{L}'-]+(?:\s+[A-Z][a-z\u00f3\u0105\u0107\u0119\u0142\u0144\u015b\u017a\u017c][\p{L}'-]+){1,3}$/u.test(line) &&
     !HEADER_KEYWORDS_BLACKLIST.test(line)
   );
 
-  const name =
-    nameCandidate ||
+  // ✅ NOWOŚĆ: Szukaj imion z rozbitymi spacjami (np. "ŁU KASZ")
+  const nameBroken = top.find((line) =>
+    /^[A-ZŁŚŻŹĆŃÓĄĘ\s]{5,40}$/u.test(line) &&
+    line.includes(' ') &&
+    !HEADER_KEYWORDS_BLACKLIST.test(line) &&
+    line.split(' ').some(part => part.length >= 2)
+  );
+
+  let name = nameAllCaps || nameCandidate || nameBroken ||
     top.find(
       (line) =>
         /^[\p{Lu}][\p{L}'-]+(?:\s+[\p{Lu}][\p{L}'-]+){1,3}$/u.test(line) &&
         !HEADER_KEYWORDS_BLACKLIST.test(line) &&
         line.length < 40,
     );
+
+  // Jeśli nameBroken wyłapało śmieci z "OMNIE", spróbuj to wyczyścić
+  // ✅ NOWOŚĆ: Jeszcze silniejsze łączenie rozbitych liter
+  const joinBrokenText = (text: string) => {
+    // Łącz pojedyncze litery rozdzielone spacją (np. "Ł U K A S Z" -> "ŁUKASZ")
+    return text.replace(/([A-ZŁŚŻŹĆŃÓĄĘ])\s+(?=[A-ZŁŚŻŹĆŃÓĄĘ])/gu, '$1');
+  };
+
+  // Jeśli nameBroken wyłapało śmieci z "OMNIE", spróbuj to wyczyścić
+  if (name) {
+    name = joinBrokenText(
+      name
+        .replace(/omnie/i, '')
+        .replace(/[:;-]/g, '')
+        .replace(/\s+[A-ZŁŚŻŹĆŃÓĄĘ]$/g, '') // Usuń pojedynczą literę TYLKO na samym końcu
+        .trim()
+    );
+    // Jeśli po złączeniu mamy coś w stylu "ŁUKASZ", upewnij się że nie ma tam wiszącej litery na końcu
+    name = name.replace(/\s+[A-ZŁŚŻŹĆŃÓĄĘ]$/g, '').trim();
+    if (name.length < 3) name = undefined;
+  }
+
+  // ✅ NOWOŚĆ: Jeśli name jest dalej undefined, ale w location jest "ŁU KASZ", wyciągnij to
+  if (!name && location && /[A-ZŁŚŻŹĆŃÓĄĘ\s]{4,}/u.test(location)) {
+    const extracted = location.match(/[A-ZŁŚŻŹĆŃÓĄĘ\s]{4,}/u);
+    if (extracted && extracted[0].length > 4 && !HEADER_KEYWORDS_BLACKLIST.test(extracted[0])) {
+      const candidate = extracted[0]
+        .replace(/omnie/i, '')
+        .replace(/[:;-]/g, '')
+        .replace(/\s+[A-ZŁŚŻŹĆŃÓĄĘ]$/g, '')
+        .trim();
+      if (candidate.length > 5) name = joinBrokenText(candidate).replace(/\s+[A-ZŁŚŻŹĆŃÓĄĘ]$/g, '').trim();
+    }
+  }
 
   const title = top.find(
     (line) =>
@@ -55,8 +116,13 @@ const collectHeader = (lines: string[]) => {
       line.length > 8 &&
       line.length < 80 &&
       !HEADER_KEYWORDS_BLACKLIST.test(line),
-  );
-  return { name, title, email, phone, location };
+  )?.replace(/si\u0119\s*podnos|kualtacje|ire\s*pj/gi, '').trim();
+
+  // ✅ Debug log - sprawdź w konsoli przeglądarki co wyciągnęło
+  const header = { name, title, email, phone, location };
+  console.log('HEADER_DEBUG', header);
+
+  return header;
 };
 
 const splitListItems = (lines: string[]) =>

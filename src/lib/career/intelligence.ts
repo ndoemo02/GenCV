@@ -135,51 +135,50 @@ export const computeCareerIntelligence = async (
   }
 
   try {
-    const ai = getGeminiClient();
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [{
-        role: 'user',
-        parts: [
-          {
-            text: `Przeanalizuj profil zawodowy i zwroc tylko JSON. CV: ${JSON.stringify(normalizedCv)}. Kontekst: ${additionalContext}`,
-          },
-        ],
-      }],
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            estimatedCurrentRole: { type: Type.STRING },
-            seniorityLevel: { type: Type.STRING },
-            strongestSkills: { type: Type.ARRAY, items: { type: Type.STRING } },
-            missingSkills: { type: Type.ARRAY, items: { type: Type.STRING } },
-            profileClarity: { type: Type.NUMBER },
-            growthPotential: { type: Type.NUMBER },
-            readinessScore: { type: Type.NUMBER },
-            roadmaps: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  variant: { type: Type.STRING },
-                  targetRole: { type: Type.STRING },
-                  reasoning: { type: Type.STRING },
-                  timeline: { type: Type.STRING },
-                  riskLevel: { type: Type.STRING },
-                  nextActions: { type: Type.ARRAY, items: { type: Type.STRING } },
-                },
-                required: ['variant', 'targetRole', 'reasoning', 'timeline', 'riskLevel', 'nextActions'],
-              },
-            },
-          },
-          required: ['estimatedCurrentRole', 'seniorityLevel', 'strongestSkills', 'missingSkills', 'profileClarity', 'growthPotential', 'readinessScore', 'roadmaps'],
-        },
-      },
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const model = 'gemini-2.5-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `Przeanalizuj profil zawodowy i zwroc tylko JSON. CV: ${JSON.stringify(normalizedCv)}. Kontekst: ${additionalContext}. 
+            JSON SCHEMA: {
+              estimatedCurrentRole: string,
+              seniorityLevel: string,
+              strongestSkills: string[],
+              missingSkills: string[],
+              profileClarity: number (0-100),
+              growthPotential: number (0-100),
+              readinessScore: number (0-100),
+              roadmaps: Array<{ variant: string, targetRole: string, reasoning: string, timeline: string, riskLevel: string, nextActions: string[] }>
+            }`
+          }]
+        }],
+        generationConfig: {
+          responseMimeType: 'application/json'
+        }
+      })
     });
 
-    const parsed = JSON.parse(response.text || '{}') as CareerAnalysis;
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      console.error('[GEMINI_API_ERROR]', { status: res.status, errorData });
+      throw new Error(`Gemini API Error: ${res.status}`);
+    }
+    const data = await res.json();
+    const resultRaw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultRaw) {
+      console.warn('[GEMINI_FETCH] Brak tekstu w odpowiedzi. data:', data);
+      throw new Error('Pusta odpowiedź z Gemini');
+    }
+    
+    const parsed = JSON.parse(resultRaw) as CareerAnalysis;
+    
+    // Mapowanie i walidacja wyników
     const roadmaps = (parsed.roadmaps || fallback.roadmaps).map((roadmap, index) => ({
       ...fallback.roadmaps[index],
       ...roadmap,
@@ -195,7 +194,9 @@ export const computeCareerIntelligence = async (
       readinessScore: Math.max(0, Math.min(100, Math.round(parsed.readinessScore ?? fallback.readinessScore))),
       roadmaps,
     };
-  } catch {
+  } catch (err) {
+    console.error('[GEMINI_FETCH] Error:', err);
     return fallback;
   }
 };
+

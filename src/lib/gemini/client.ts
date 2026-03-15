@@ -11,9 +11,18 @@ export const hasGeminiKey = () => {
 
 export const getGeminiClient = () => {
   const apiKey = getApiKey();
+  
+  // Debug log to verify if the key is loading
+  console.log('[GEMINI] API Key exists:', !!apiKey, 'length:', apiKey?.length);
+
   if (!apiKey) {
     throw new Error('Brak VITE_GEMINI_API_KEY. Skonfiguruj klucz w pliku .env.local lub ustawieniach.');
   }
 
-  return new GoogleGenAI({ apiKey });
+  // Wymuszamy platformę 'gemini', aby uniknąć błędnego użycia endpointów Vertex AI
+  return new GoogleGenAI({ 
+    apiKey,
+    //@ts-ignore - platform is needed for Gemini Developer API in the new SDK
+    platform: 'gemini' 
+  } as any);
 };

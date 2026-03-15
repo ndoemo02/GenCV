@@ -86,58 +86,64 @@ export const Step3Result: React.FC<Step3Props> = ({ result, onRestart }) => {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         {/* Paper Preview Column */}
-        <section className="group relative rounded-[2.5rem] border border-white/10 bg-zinc-950/40 p-1 backdrop-blur-3xl transition-all duration-500 hover:border-white/20">
-          <div className="absolute -top-3 left-8 rounded-full bg-zinc-900 px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 border border-white/5">
-            Podglad Dokumentu (Clean Design)
+        <section className="group relative rounded-[3rem] border border-white/10 bg-zinc-950/40 p-1.5 backdrop-blur-3xl transition-all duration-700 hover:border-white/25 hover:shadow-[0_0_80px_-20px_rgba(255,255,255,0.1)]">
+          <div className="absolute -top-3 left-10 rounded-full bg-zinc-900 px-5 py-1.5 text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 border border-white/10 shadow-lg">
+            Podgląd Dokumentu (Clean Design)
           </div>
           
-          <div className="flex min-h-[800px] flex-col overflow-hidden rounded-[2.3rem] bg-white text-zinc-900 shadow-2xl sm:flex-row">
+          <div className="flex min-h-[850px] flex-col overflow-hidden rounded-[2.8rem] bg-white text-zinc-950 shadow-2xl sm:flex-row ring-1 ring-black/5">
             {/* Paper Sidebar */}
-            <div className="w-full flex-col gap-6 bg-zinc-50/80 p-6 sm:w-[200px] sm:flex sm:p-8 border-b sm:border-b-0 sm:border-r border-zinc-100">
-              <div className="grid grid-cols-1 gap-6 mini:grid-cols-2 sm:grid-cols-1 sm:space-y-6">
+            <div className="w-full flex-col gap-8 bg-zinc-50/90 p-8 sm:w-[220px] sm:flex sm:p-10 border-b sm:border-b-0 sm:border-r border-zinc-100">
+              <div className="grid grid-cols-1 gap-8 mini:grid-cols-2 sm:grid-cols-1 sm:space-y-10">
                 <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Dane Kontaktowe</h4>
-                  <div className="mt-3 space-y-2 text-[11px] text-zinc-600">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-700/80 mb-4">Kontakt</h4>
+                  <div className="space-y-3.5 text-[11px] text-zinc-600 font-medium tracking-tight">
                     {result.structuredCv.personal?.email && (
-                      <div className="flex items-center gap-2">
-                        <Mail size={12} className="shrink-0 text-zinc-400" />
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-md bg-blue-600/5 flex items-center justify-center text-blue-600">
+                          <Mail size={12} />
+                        </div>
                         <span className="truncate">{result.structuredCv.personal.email}</span>
                       </div>
                     )}
                     {result.structuredCv.personal?.phone && (
-                      <div className="flex items-center gap-2">
-                        <Phone size={12} className="shrink-0 text-zinc-400" />
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-md bg-blue-600/5 flex items-center justify-center text-blue-600">
+                          <Phone size={12} />
+                        </div>
                         <span>{result.structuredCv.personal.phone}</span>
                       </div>
                     )}
                     {result.structuredCv.personal?.location && (
-                      <div className="flex items-center gap-2">
-                        <MapPin size={12} className="shrink-0 text-zinc-400" />
-                        <span>{result.structuredCv.personal.location}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-md bg-blue-600/5 flex items-center justify-center text-blue-600">
+                          <MapPin size={12} />
+                        </div>
+                        <span className="leading-snug">{result.structuredCv.personal.location}</span>
                       </div>
                     )}
                   </div>
                 </div>
-
+ 
                 <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Umiejetnosci</h4>
-                  <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-600 sm:block sm:space-y-2">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-700/80 mb-4">Kompetencje</h4>
+                  <ul className="flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-zinc-600 font-medium sm:block sm:space-y-2.5">
                     {result.structuredCv.skills?.slice(0, 15).map((skill) => (
-                      <li key={skill} className="flex gap-2">
-                        <span className="text-blue-500">•</span> {skill}
+                      <li key={skill} className="flex gap-2.5 leading-snug">
+                        <span className="text-blue-500 font-black">•</span> {skill}
                       </li>
                     ))}
                   </ul>
                 </div>
               </div>
             </div>
-
+ 
             {/* Paper Main */}
-            <div className="flex-1 p-8 sm:p-12 overflow-hidden">
-              <header className="max-w-full overflow-hidden">
-                <h3 className="text-2xl font-black uppercase tracking-tight text-zinc-900 break-all sm:text-3xl sm:break-words leading-[1.1]">{fullName}</h3>
+            <div className="flex-1 p-10 sm:p-14 overflow-hidden">
+              <header className="max-w-full overflow-hidden border-b-2 border-zinc-950 pb-6 mb-10">
+                <h3 className="text-3xl font-black uppercase tracking-tight text-zinc-950 break-all sm:text-4xl sm:break-words leading-[1]">{fullName}</h3>
                 {title && (
-                  <p className="mt-3 text-[10px] font-bold text-blue-600 tracking-wider uppercase sm:text-sm break-words leading-snug max-w-lg">
+                  <p className="mt-4 text-xs font-bold text-blue-700 tracking-[0.15em] uppercase sm:text-[13px] break-words leading-relaxed max-w-xl italic">
                     {title}
                   </p>
                 )}

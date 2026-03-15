@@ -98,11 +98,16 @@ export const sanitizeStringList = (items: Array<string | undefined> | undefined,
   return clean;
 };
 
+export const normalizePhone = (raw: string | undefined): string | undefined => {
+  if (!raw) return undefined;
+  return raw.replace(/\s{2,}/g, ' ').trim();
+};
+
 export const joinSanitizedBlocks = (...parts: Array<string | undefined>): string =>
   sanitizeRawCvText(parts.filter(Boolean).join('\n'));
 
 export const sanitizeHeadline = (text: string | undefined): string => {
   const clean = sanitizeInlineText(text) || '';
-  if (clean.length <= 70) return clean;
-  return clean.slice(0, 67) + '...';
+  if (clean.length <= 60) return clean;
+  return clean.slice(0, 57) + '...';
 };
