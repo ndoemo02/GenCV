@@ -30,11 +30,18 @@ const collectHeader = (lines: string[]) => {
   const email = top.find((line) => /@/.test(line));
   const phone = top.find((line) => /\+?\d[\d\s()-]{7,}\d/.test(line));
   const location = top.find((line) => /(warszawa|krakw|krakow|wrocaw|wroclaw|gdask|gdansk|pozna|poznan|berlin|remote|polska|poland)/i.test(line));
-  const name = top.find((line) => 
+  
+  const nameCandidate = top.find((line) => 
+    /^[A-Z][a-z\u00F3\u0105\u0107\u0119\u0142\u0144\u015B\u017A\u017C][\p{L}'-]+(?:\s+[A-Z][a-z\u00F3\u0105\u0107\u0119\u0142\u0144\u015B\u017A\u017C][\p{L}'-]+){1,3}$/u.test(line) && 
+    !HEADER_KEYWORDS_BLACKLIST.test(line)
+  );
+
+  const name = nameCandidate || top.find((line) => 
     /^[\p{Lu}][\p{L}'-]+(?:\s+[\p{Lu}][\p{L}'-]+){1,3}$/u.test(line) && 
     !HEADER_KEYWORDS_BLACKLIST.test(line) &&
     line.length < 40
   );
+  
   const title = top.find((line) => line !== name && !/@/.test(line) && !/\d/.test(line) && line.length > 8 && line.length < 80 && !HEADER_KEYWORDS_BLACKLIST.test(line));
   return { name, title, email, phone, location };
 };
