@@ -1,4 +1,4 @@
-﻿import { Type, ThinkingLevel } from '@google/genai';
+import { Type, ThinkingLevel } from '@google/genai';
 import type { CareerAnalysis, CareerRoadmap, NormalizedCvSchema, RoadmapVariant } from '../../types';
 import { getGeminiClient, hasGeminiKey } from '../gemini/client';
 
@@ -137,17 +137,17 @@ export const computeCareerIntelligence = async (
   try {
     const ai = getGeminiClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-pro',
-      contents: {
+      model: 'gemini-1.5-pro',
+      contents: [{
+        role: 'user',
         parts: [
           {
             text: `Przeanalizuj profil zawodowy i zwroc tylko JSON. CV: ${JSON.stringify(normalizedCv)}. Kontekst: ${additionalContext}`,
           },
         ],
-      },
+      }],
       config: {
         responseMimeType: 'application/json',
-        thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
         responseSchema: {
           type: Type.OBJECT,
           properties: {

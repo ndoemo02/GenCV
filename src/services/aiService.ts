@@ -172,7 +172,7 @@ const extractNormalizedCvWithGemini = async (
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-1.5-pro',
-      contents: { parts },
+      contents: [{ role: 'user', parts }],
       config: {
         responseMimeType: 'application/json',
         responseSchema: {
@@ -285,6 +285,10 @@ export const extractNormalizedCvFromAsset = async (
     throw new CvParsingError();
   }
 
+  const cleanBase64 = asset.base64.includes('base64,') 
+    ? asset.base64.split('base64,')[1] 
+    : asset.base64;
+
   try {
     const prompt = `
   Jesteś ekspertem HR i systemem ATS. Twoim zadaniem jest wyekstrahowanie i uporządkowanie danych z załączonego CV.
@@ -304,7 +308,7 @@ export const extractNormalizedCvFromAsset = async (
 
     return await extractNormalizedCvWithGemini(
       [
-        { inlineData: { data: asset.base64, mimeType: asset.mimeType } },
+        { inlineData: { data: cleanBase64, mimeType: asset.mimeType } },
         { text: prompt },
       ],
       sanitizedFallbackText || sanitizeRawCvText(additionalContext),

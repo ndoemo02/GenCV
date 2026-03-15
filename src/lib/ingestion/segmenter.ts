@@ -23,13 +23,19 @@ const uniqueLines = (rawText: string) =>
 
 const detectSection = (line: string) => SECTION_PATTERNS.find((entry) => entry.pattern.test(line))?.key;
 
+const HEADER_KEYWORDS_BLACKLIST = /(umiejetnosci|umiejętności|doswiadczenie|doświadczenie|wyksztalcenie|wykształcenie|profil|podsumowanie|hobby|jezyki|języki|skills|experience|education|summary|languages|clausula|klauzula|contact|kontakt|urodzenia|urodz|miejscowosc|adres|hobby|zainteresowania|szkolenia|kursy|umeęno)/i;
+
 const collectHeader = (lines: string[]) => {
-  const top = lines.slice(0, 8);
+  const top = lines.slice(0, 10);
   const email = top.find((line) => /@/.test(line));
   const phone = top.find((line) => /\+?\d[\d\s()-]{7,}\d/.test(line));
-  const location = top.find((line) => /(warszawa|krak�w|krakow|wroc�aw|wroclaw|gda�sk|gdansk|pozna�|poznan|berlin|remote)/i.test(line));
-  const name = top.find((line) => /^[\p{Lu}][\p{L}'-]+(?:\s+[\p{Lu}][\p{L}'-]+){1,3}$/u.test(line));
-  const title = top.find((line) => line !== name && !/@/.test(line) && !/\d/.test(line) && line.length > 8 && line.length < 80);
+  const location = top.find((line) => /(warszawa|krakw|krakow|wrocaw|wroclaw|gdask|gdansk|pozna|poznan|berlin|remote|polska|poland)/i.test(line));
+  const name = top.find((line) => 
+    /^[\p{Lu}][\p{L}'-]+(?:\s+[\p{Lu}][\p{L}'-]+){1,3}$/u.test(line) && 
+    !HEADER_KEYWORDS_BLACKLIST.test(line) &&
+    line.length < 40
+  );
+  const title = top.find((line) => line !== name && !/@/.test(line) && !/\d/.test(line) && line.length > 8 && line.length < 80 && !HEADER_KEYWORDS_BLACKLIST.test(line));
   return { name, title, email, phone, location };
 };
 
