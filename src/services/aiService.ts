@@ -29,22 +29,32 @@ const SECTION_HEADERS_REGEX = /(umiejetnosci|kompetencje|doswiadczenie|wyksztalc
 
 const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema => {
   let fullName = sanitizeInlineText(candidate.fullName);
+  let headline = sanitizeInlineText(candidate.headline);
   
-  // Agresywna filtracja naglowkow i smieci ocr
+  // Agresywna filtracja naglowkow i smieci ocr dla Imienia i Nazwiska
   if (fullName) {
     const isHeader = SECTION_HEADERS_REGEX.test(fullName);
-    const isGarbage = fullName.length > 20 && !fullName.includes(' ');
+    const isGarbage = fullName.length > 25 && !fullName.includes(' ');
+    const isTooLong = fullName.length > 45;
     const isTooHeavyUppercase = (fullName.match(/[A-ZĄĘÓŚŁŻŹĆ]/g)?.length ?? 0) > fullName.length * 0.7 && fullName.length > 10;
+    const hasForbiddenChars = /[©®™]/.test(fullName);
     
-    if (isHeader || isGarbage || isTooHeavyUppercase) {
-      fullName = 'Imie i Nazwisko';
+    if (isHeader || isGarbage || isTooLong || isTooHeavyUppercase || hasForbiddenChars) {
+      fullName = 'Imię i Nazwisko';
+    }
+  }
+
+  // Filtracja dla headline (stanowiska)
+  if (headline) {
+    if (SECTION_HEADERS_REGEX.test(headline) || headline.length > 60 || headline.includes('©')) {
+      headline = undefined;
     }
   }
 
   return {
     language: sanitizeInlineText(candidate.language) || (/[^\x00-\x7F]/.test(candidate.summary || '') ? 'pl' : 'en'),
-    fullName: fullName || 'Imie i Nazwisko',
-    headline: sanitizeInlineText(candidate.headline),
+    fullName: fullName || 'Imię i Nazwisko',
+    headline: headline,
     summary: sanitizeInlineText(candidate.summary),
     contact: {
       email: sanitizeInlineText(candidate.contact.email),
@@ -245,7 +255,7 @@ export const extractNormalizedCvFromAsset = async (
     return await extractNormalizedCvWithGemini(
       [
         { inlineData: { data: asset.base64, mimeType: asset.mimeType } },
-        { text: `${instruction} Zwracaj tylko JSON zgodny ze schematem CV.` },
+        { text: `${instruction} UWAGA: Nigdy nie uzywaj naglowkow sekcji (np. DOSWIADCZENIE, UMIEJETNOSCI) jako Imienia i Nazwiska kandydata. Jesli nie widac imienia, wpisz "Imię i Nazwisko". Zwracaj tylko JSON zgodny ze schematem CV.` },
       ],
       sanitizedFallbackText || sanitizeRawCvText(additionalContext),
       additionalContext,

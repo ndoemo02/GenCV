@@ -134,15 +134,19 @@ export const Step3Result: React.FC<Step3Props> = ({ result, onRestart }) => {
             </div>
 
             {/* Paper Main */}
-            <div className="flex-1 p-8 sm:p-12">
-              <header className="overflow-hidden">
+            <div className="flex-1 p-8 sm:p-12 overflow-hidden">
+              <header className="max-w-full overflow-hidden">
                 <h3 className="text-2xl font-black uppercase tracking-tight text-zinc-900 break-all sm:text-3xl sm:break-words leading-[1.1]">{fullName}</h3>
-                <p className="mt-3 text-xs font-bold text-blue-600 tracking-wider uppercase sm:text-sm">{title}</p>
+                {title && (
+                  <p className="mt-3 text-[10px] font-bold text-blue-600 tracking-wider uppercase sm:text-sm break-words leading-snug max-w-lg">
+                    {title}
+                  </p>
+                )}
               </header>
 
               <div className="mt-8 space-y-10">
                 {displaySections.map((section) => (
-                  <div key={section.title}>
+                  <div key={section.title} className="break-words">
                     <h4 className="border-b border-zinc-100 pb-1 text-[11px] font-black uppercase tracking-widest text-zinc-400">{section.title}</h4>
                     <div className="mt-4 space-y-6">
                       {section.items.map((item, idx) => (
