@@ -19,7 +19,7 @@ const sanitizeNormalizedCv = (candidate) => {
     const hasDigit = /\d/.test(fullName);
     const startsWithKeyword = /^(umiej|dosw|wyksz|edu|pro|zawod)/i.test(fullName);
     
-    const containsSectionKeywords = /(doświadczenie|umiejętności|zawodowe|kompetencje|edukacja)/i.test(fnLower);
+    const containsSectionKeywords = /(doświadczenie|umiejętności|zawodowe|kompetencje|edukacja|język|jezyk|angielski)/i.test(fnLower);
     
     if (isHeader || isGarbage || isTooLong || isTooHeavyUppercase || hasForbiddenChars || startsWithKeyword || hasDigit || containsSectionKeywords) {
       fullName = 'Imię i Nazwisko';

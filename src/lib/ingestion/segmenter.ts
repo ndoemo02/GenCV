@@ -23,7 +23,7 @@ const uniqueLines = (rawText: string) =>
 
 const detectSection = (line: string) => SECTION_PATTERNS.find((entry) => entry.pattern.test(line))?.key;
 
-const HEADER_KEYWORDS_BLACKLIST = /(umiejetnosci|umiejętności|obsługa|obsluga|elektronarzędzi|elektronarzedzi|metal|inert|gas|mig|mag|tig|welding|doswiadczenie|doświadczenie|wyksztalcenie|wykształcenie|wykszt|edukacja|profil|podsumowanie|hobby|jezyki|języki|skills|experience|education|summary|languages|clausula|klauzula|contact|kontakt|urodzenia|urodz|miejscowosc|adres|zainteresowania|szkolenia|kursy|ire\s*pj|sp\. z|kaastel|metaal)/i;
+const HEADER_KEYWORDS_BLACKLIST = /(umiejetnosci|umiejętności|umiejętność|umiejetnosc|obsługa|obsluga|elektronarzędzi|elektronarzedzi|metal|inert|gas|mig|mag|tig|welding|spawanie|spawacz|doswiadczenie|doświadczenie|wyksztalcenie|wykształcenie|wykszt|edukacja|profil|podsumowanie|hobby|jezyki|języki|jezyk|język|angielski|niemiecki|skills|experience|education|summary|languages|clausula|klauzula|contact|kontakt|urodzenia|urodz|miejscowosc|adres|zainteresowania|szkolenia|kursy|ire\s*pj|sp\. z|kaastel|metaal)/i;
 
 const collectHeader = (lines: string[]) => {
   // ✅ Rozszerzony zakres skanowania dla dokumentów z dużym marginesem

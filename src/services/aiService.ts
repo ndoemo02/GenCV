@@ -47,7 +47,7 @@ const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema
   let headline = sanitizeInlineText(candidate.headline);
   
   // ✅ NOWY: Agresywna filtracja imion, które są nagłówkami sekcji
-  if (fullName && /(obsługa|obsluga|umiejętności|umiejetnosci|doświadczenie|doswiadczenie|wykształcenie|wyksztalcenie|elektronarzędzi|elektronarzedzi)/i.test(fullName)) {
+  if (fullName && /(obsługa|obsluga|umiejętności|umiejetnosci|język|jezyk|angielski|niemiecki|doświadczenie|doswiadczenie|wykształcenie|wyksztalcenie|elektronarzędzi|elektronarzedzi)/i.test(fullName)) {
     console.warn('[SANITIZE] fullName zawiera nagłówek sekcji, zastępuję placeholderem:', fullName);
     fullName = 'Imię i Nazwisko';
   }
@@ -192,7 +192,7 @@ const extractNormalizedCvWithGemini = async (
 ) => {
   try {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    const model = 'gemini-2.5-flash';
+    const model = 'gemini-2.0-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     // Przygotuj prompt z instrukcją JSON
