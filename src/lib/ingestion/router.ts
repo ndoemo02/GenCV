@@ -3,7 +3,6 @@ import { extractNormalizedCvFromAsset, extractNormalizedCvFromText } from '../..
 import { logPipeline } from '../debug/pipeline';
 import { joinSanitizedBlocks, sanitizeRawCvText } from '../cv/sanitize';
 import { assertCvText, extractPdfText, runOcr } from './extractors';
-import { buildNormalizedCvFromSegments } from './segmenter';
 
 const getFileKind = (mimeType: string, fileName: string) => {
   const lowerMime = mimeType.toLowerCase();
@@ -27,7 +26,7 @@ export const routeIngestion = async ({ sourceFile, rawText, additionalContext }:
 
   if (!sourceFile) {
     if (!sanitizedInput) {
-      throw new Error('Nie uda³o siê odczytaæ treœci CV. Spróbuj wrzuciæ oryginalny PDF lub wyraŸniejszy skan.');
+      throw new Error('Nie udaÂ³o siÃª odczytaÃ¦ treÂœci CV. SprÃ³buj wrzuciÃ¦ oryginalny PDF lub wyraÂŸniejszy skan.');
     }
 
     const normalizedCv = await extractNormalizedCvFromText(sanitizedInput, additionalContext);
@@ -50,7 +49,7 @@ export const routeIngestion = async ({ sourceFile, rawText, additionalContext }:
     let confidence = extractedPdf.isScanned ? 0 : 0.92;
 
     if (extractedPdf.isScanned) {
-      warnings.push('PDF wygl¹da na skan lub layout-heavy dokument, uruchomiono OCR.');
+      warnings.push('PDF wyglÂ¹da na skan lub layout-heavy dokument, uruchomiono OCR.');
       const ocr = await runOcr(sourceFile);
       extractedText = ocr.rawText;
       confidence = ocr.confidence;
@@ -58,7 +57,13 @@ export const routeIngestion = async ({ sourceFile, rawText, additionalContext }:
 
     assertCvText(extractedText);
     const mergedText = joinSanitizedBlocks(extractedText, rawText, additionalContext);
-    const normalizedCv = buildNormalizedCvFromSegments(mergedText, additionalContext);
+    
+    let normalizedCv;
+    if (extractedPdf.isScanned) {
+      normalizedCv = await extractNormalizedCvFromAsset(sourceFile, '', mergedText, additionalContext);
+    } else {
+      normalizedCv = await extractNormalizedCvFromText(mergedText, additionalContext);
+    }
 
     return {
       source: 'pdf',
@@ -73,7 +78,7 @@ export const routeIngestion = async ({ sourceFile, rawText, additionalContext }:
     const ocr = await runOcr(sourceFile);
     assertCvText(ocr.rawText);
     const mergedText = joinSanitizedBlocks(ocr.rawText, rawText, additionalContext);
-    const normalizedCv = buildNormalizedCvFromSegments(mergedText, additionalContext);
+    const normalizedCv = await extractNormalizedCvFromAsset(sourceFile, '', mergedText, additionalContext);
 
     return {
       source: 'image',

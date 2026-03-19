@@ -291,10 +291,10 @@ export const extractNormalizedCvFromAsset = async (
 
   try {
     const prompt = `
-Jesteś elitarnym ekspertem HR. Twoim zadaniem jest wyekstrahowanie danych z CV na załączonym OBRAZIE.
+Jesteś elitarnym ekspertem HR. Twoim zadaniem jest wyekstrahowanie danych z CV na załączonym DOKUMENCIE/OBRAZIE.
 
 KRYTYCZNE INSTRUKCJE:
-1. Czytaj dane BEZPOŚREDNIO z obrazu. Na górze znajdź imię i nazwisko (zwykle największy tekst).
+1. Czytaj dane BEZPOŚREDNIO z dokumentu. Na górze znajdź imię i nazwisko (zwykle największy tekst).
    Jeśli widzisz rozdzielone litery (np. "Ł U K A S Z"), złącz je w "Łukasz". 
 2. Numer telefonu wyszukaj dokładnie (format +48 XXX XXX XXX).
 3. Email zwykle znajduje się blisko telefonu lub w stopce.
