@@ -7,7 +7,7 @@ import type {
   StructuredCV,
   UploadedAsset,
 } from '../types';
-import { getGeminiClient, hasGeminiKey } from '../lib/gemini/client';
+import { getApiKey, getGeminiClient, hasGeminiKey } from '../lib/gemini/client';
 import { computeCareerIntelligence } from '../lib/career/intelligence';
 import { buildStructuredCvFromNormalized, countStructuredSections, validateStructuredCv } from '../lib/cv/structured';
 import { joinSanitizedBlocks, sanitizeInlineText, sanitizeRawCvText, sanitizeStringList, stripContactInfo } from '../lib/cv/sanitize';
@@ -147,10 +147,6 @@ const validateNormalizedCvCandidate = (candidate: NormalizedCvSchema, rawText: s
     reasons.push('hallucinated_placeholders');
   }
 
-  if (!rawText.trim()) {
-    reasons.push('empty_input');
-  }
-
   return {
     valid: reasons.length === 0,
     reasons: Array.from(new Set(reasons)),
@@ -191,12 +187,12 @@ const extractNormalizedCvWithGemini = async (
   additionalContext = '',
 ) => {
   try {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const apiKey = getApiKey();
     const model = 'gemini-2.0-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     // Przygotuj prompt z instrukcją JSON
-    const promptText = `Wypisz dane z CV w formacie JSON zgodnym ze schematem: 
+    const schemaText = `Oto wymagany schemat JSON: 
     {
       fullName: string, 
       headline: string, 
@@ -206,7 +202,7 @@ const extractNormalizedCvWithGemini = async (
       experience: Array<{ company: string, role: string, startDate: string, endDate: string, bullets: string[] }>,
       education: Array<{ institution: string, degree: string, endDate: string }>,
       certifications: string[]
-    }. CV TEXT: ${fallbackText}. ${additionalContext}`;
+    }.`;
 
     const res = await fetch(url, {
       method: 'POST',
@@ -215,7 +211,7 @@ const extractNormalizedCvWithGemini = async (
         contents: [{
           parts: [
             ...parts.map(p => p.inlineData ? { inlineData: p.inlineData } : { text: p.text || '' }),
-            { text: promptText }
+            { text: schemaText }
           ]
         }],
         generationConfig: {

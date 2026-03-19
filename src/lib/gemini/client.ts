@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 
-const getApiKey = () => {
+export const getApiKey = () => {
   return import.meta.env.VITE_GEMINI_API_KEY || (typeof window !== 'undefined' ? (window as any).GEMINI_API_KEY || localStorage.getItem('GEMINI_API_KEY') : undefined);
 };
 
