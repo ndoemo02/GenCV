@@ -165,7 +165,6 @@ const extractNormalizedCvWithGemini = async (
   fallbackText: string,
   additionalContext = '',
 ) => {
-  try {
     const apiKey = getApiKey();
     const model = 'gemini-1.5-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -215,14 +214,8 @@ const extractNormalizedCvWithGemini = async (
       return normalized;
     }
 
-    console.warn('[AI] Model zwrocil dane, ale nie przeszly walidacji:', validation.reasons);
-  } catch (err) {
-    console.error('[AI] Blad Gemini (FETCH):', err);
-  }
-
-  // Fallback tylko w przypadku bledu lub skrajnie slabej jakosci AI
-  console.info('[AI] Uruchamiam fallback OCR parser...');
-  return fallbackNormalizeCv(fallbackText, additionalContext);
+    console.warn('[AI] Model zwrocil dane, ale przeszly walidacji, mimo to ufamy wynikom:', validation.reasons);
+    return normalized;
 };
 
 export const extractNormalizedCvFromText = async (rawInput: string, additionalContext = ''): Promise<NormalizedCvSchema> => {
@@ -233,19 +226,15 @@ export const extractNormalizedCvFromText = async (rawInput: string, additionalCo
     return fallback;
   }
 
-  try {
-    return await extractNormalizedCvWithGemini(
-      [
-        {
-          text: `Znormalizuj ponizsze dane kandydata do struktury CV. Zwracaj tylko JSON. Tekst: ${sanitizedText}\nKontekst: ${sanitizedContext}`,
-        },
-      ],
-      joinSanitizedBlocks(sanitizedText, sanitizedContext),
-      sanitizedContext,
-    );
-  } catch {
-    return fallback;
-  }
+  return await extractNormalizedCvWithGemini(
+    [
+      {
+        text: `Znormalizuj ponizsze dane kandydata do struktury CV. Zwracaj tylko JSON. Tekst: ${sanitizedText}\nKontekst: ${sanitizedContext}`,
+      },
+    ],
+    joinSanitizedBlocks(sanitizedText, sanitizedContext),
+    sanitizedContext,
+  );
 };
 
 export const extractNormalizedCvFromAsset = async (
@@ -268,8 +257,7 @@ export const extractNormalizedCvFromAsset = async (
     ? asset.base64.split('base64,')[1] 
     : asset.base64;
 
-  try {
-    const prompt = `
+  const prompt = `
 Jesteś elitarnym ekspertem HR. Twoim zadaniem jest wyekstrahowanie danych z CV na załączonym DOKUMENCIE/OBRAZIE.
 
 KRYTYCZNE INSTRUKCJE:
@@ -283,22 +271,14 @@ KRYTYCZNE INSTRUKCJE:
 Zwróć tylko czysty obiekt JSON zgodnie ze schematem.
 `.trim();
 
-    return await extractNormalizedCvWithGemini(
-      [
-        { inlineData: { data: cleanBase64, mimeType: asset.mimeType } },
-        { text: prompt },
-      ],
-      '', // ✅ Pusty fallbackText — niech AI pracuje tylko z obrazem (Vision mode)
-      additionalContext,
-    );
-  } catch (err) {
-    console.error('[AI] Wyjatek w extractNormalizedCvFromAsset:', err);
-    if (fallback) {
-      return fallback;
-    }
-
-    throw new CvParsingError();
-  }
+  return await extractNormalizedCvWithGemini(
+    [
+      { inlineData: { data: cleanBase64, mimeType: asset.mimeType } },
+      { text: prompt },
+    ],
+    '', // ✅ Pusty fallbackText — niech AI pracuje tylko z obrazem (Vision mode)
+    additionalContext,
+  );
 };
 
 export const generateStructuredCv = async (
@@ -309,17 +289,12 @@ export const generateStructuredCv = async (
   const validation = validateStructuredCv(structuredCv);
 
   if (!validation.valid) {
-    const fallbackStructuredCv = buildStructuredCvFromNormalized(fallbackNormalizeCv(ingestion.rawText, additionalContext), additionalContext);
-    logPipeline('structured_cv_fallback', {
-      structured_sections: countStructuredSections(fallbackStructuredCv),
-      reasons: validation.reasons,
-    });
-    return fallbackStructuredCv;
+    console.warn('[AI] Structured CV ma niepokojące wyniki walidacji, ale ufamy AI bardzej niż lokalnemu parserowi:', validation.reasons);
   }
 
   logPipeline('structured_cv_ready', {
     structured_sections: countStructuredSections(structuredCv),
-    warnings: ingestion.warnings,
+    warnings: [...ingestion.warnings, ...validation.reasons],
   });
 
   return structuredCv;
