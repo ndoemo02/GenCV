@@ -1,6 +1,6 @@
 import { Type, ThinkingLevel } from '@google/genai';
 import type { CareerAnalysis, CareerRoadmap, NormalizedCvSchema, RoadmapVariant } from '../../types';
-import { getGeminiClient, hasGeminiKey } from '../gemini/client';
+import { getApiKey, getGeminiClient, hasGeminiKey } from '../gemini/client';
 
 const uid = (label: string) => `${label}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -29,20 +29,20 @@ const inferMissingSkills = (normalizedCv: NormalizedCvSchema, additionalContext:
 
 const scoreReadiness = (normalizedCv: NormalizedCvSchema) => {
   let score = 35;
-  if (normalizedCv.summary.length > 120) score += 15;
-  if (normalizedCv.skills.length >= 6) score += 20;
-  if (normalizedCv.experience.some((entry) => entry.bullets.length >= 3)) score += 15;
-  if (normalizedCv.contact.email) score += 10;
-  if (normalizedCv.contact.phone) score += 5;
+  if ((normalizedCv.summary?.length || 0) > 120) score += 15;
+  if ((normalizedCv.skills?.length || 0) >= 6) score += 20;
+  if ((normalizedCv.experience || []).some((entry) => (entry.bullets?.length || 0) >= 3)) score += 15;
+  if (normalizedCv.contact?.email) score += 10;
+  if (normalizedCv.contact?.phone) score += 5;
   return Math.min(score, 100);
 };
 
 const scoreClarity = (normalizedCv: NormalizedCvSchema) => {
   let score = 40;
-  if (normalizedCv.headline.length > 8) score += 15;
-  if (normalizedCv.summary.length > 80) score += 15;
-  if (normalizedCv.skills.length >= 5) score += 15;
-  if (normalizedCv.experience.length > 0) score += 10;
+  if ((normalizedCv.headline?.length || 0) > 8) score += 15;
+  if ((normalizedCv.summary?.length || 0) > 80) score += 15;
+  if ((normalizedCv.skills?.length || 0) >= 5) score += 15;
+  if ((normalizedCv.experience?.length || 0) > 0) score += 10;
   return Math.min(score, 100);
 };
 
@@ -135,8 +135,8 @@ export const computeCareerIntelligence = async (
   }
 
   try {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    const model = 'gemini-2.5-flash';
+    const apiKey = getApiKey();
+    const model = 'gemini-1.5-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const res = await fetch(url, {

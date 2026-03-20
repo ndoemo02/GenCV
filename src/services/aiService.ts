@@ -90,8 +90,8 @@ const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema
   return {
     language: sanitizeInlineText(candidate.language) || (/[^\x00-\x7F]/.test(candidate.summary || '') ? 'pl' : 'en'),
     fullName: fullName || 'Imię i Nazwisko',
-    headline: headline,
-    summary: stripContactInfo(sanitizeInlineText(candidate.summary)),
+    headline: headline || '',
+    summary: stripContactInfo(sanitizeInlineText(candidate.summary)) || '',
     contact: {
       email: sanitizeInlineText(candidate.contact.email),
       phone: sanitizeInlineText(candidate.contact.phone),
