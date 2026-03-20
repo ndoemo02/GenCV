@@ -136,7 +136,7 @@ export const computeCareerIntelligence = async (
 
   try {
     const apiKey = getApiKey();
-    const model = 'gemini-1.5-flash';
+    const model = 'gemini-2.5-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const res = await fetch(url, {
