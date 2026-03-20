@@ -120,31 +120,10 @@ const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema
 };
 
 const validateNormalizedCvCandidate = (candidate: NormalizedCvSchema, rawText: string) => {
-  // ✅ Złagodzona walidacja - jeśli Gemini zwrócił imię i summary, nie odrzucaj
-  if (candidate.fullName !== 'Imię i Nazwisko' && (candidate.summary?.length ?? 0) > 40) {
-    console.log('[VALIDATE] Gemini zwrócił dobre dane, akceptuję:', candidate.fullName);
-    return { valid: true, reasons: [] };
-  }
-
   const reasons: string[] = [];
-  const structured = buildStructuredCvFromNormalized(candidate, '');
-  const structuredValidation = validateStructuredCv(structured);
-
-  if (!candidate.fullName || candidate.fullName === 'Imię i Nazwisko') {
-    // Nie blokujemy, jeśli imię jest placeholderem, AI i tak coś wywnioskowało
-  }
-
-  if (!candidate.summary || candidate.summary.length < 10) {
-    reasons.push('missing_summary');
-  }
 
   if (!candidate.skills.length && !candidate.experience.length && !candidate.education.length) {
     reasons.push('missing_sections');
-  }
-
-  // Wstępna walidacja struktury jest teraz bardzo lekka
-  if (structuredValidation.reasons.includes('hallucinated_placeholders')) {
-    reasons.push('hallucinated_placeholders');
   }
 
   return {
