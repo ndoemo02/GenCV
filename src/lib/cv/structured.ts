@@ -85,7 +85,7 @@ const sanitizeExperience = (normalizedCv: NormalizedCvSchema): StructuredCVExper
     .map((entry) => ({
       company: sanitizeInlineText(entry.company),
       role: sanitizeInlineText(entry.role),
-      bullets: sanitizeStringList(entry.bullets, 10),
+      bullets: sanitizeStringList(entry.bullets, 20), // Zwiększono limit z 10 do 20
       start: sanitizeInlineText(entry.startDate),
       end: sanitizeInlineText(entry.endDate),
     }))
@@ -96,7 +96,7 @@ const sanitizeEducation = (normalizedCv: NormalizedCvSchema): StructuredCVEducat
     .map((entry) => ({
       school: sanitizeInlineText(entry.institution),
       degree: sanitizeInlineText(entry.degree),
-      start: undefined,
+      start: sanitizeInlineText(entry.startDate), // Teraz pobieramy start
       end: sanitizeInlineText(entry.endDate),
     }))
     .filter((entry) => entry.school || entry.degree);
@@ -104,13 +104,13 @@ const sanitizeEducation = (normalizedCv: NormalizedCvSchema): StructuredCVEducat
 export const buildStructuredCvFromNormalized = (normalizedCv: NormalizedCvSchema, additionalContext: string): StructuredCV => ({
   personal: {
     name: sanitizeInlineText(normalizedCv.fullName),
-    title: sanitizeInlineText(additionalContext) || sanitizeInlineText(normalizedCv.headline),
+    title: sanitizeInlineText(normalizedCv.headline),
     email: sanitizeInlineText(normalizedCv.contact.email),
     phone: sanitizeInlineText(normalizedCv.contact.phone),
     location: sanitizeInlineText(normalizedCv.contact.location),
   },
   summary: sanitizeInlineText(normalizedCv.summary),
-  skills: sanitizeStringList(normalizedCv.skills, 20),
+  skills: sanitizeStringList(normalizedCv.skills, 30), // Zwiększono limit z 20 do 30
   experience: sanitizeExperience(normalizedCv),
   education: sanitizeEducation(normalizedCv),
 });

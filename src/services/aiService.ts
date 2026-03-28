@@ -32,12 +32,12 @@ const smartSplitList = (items: string[] | string | undefined): string[] => {
   if (Array.isArray(items)) {
     return items.flatMap(item => {
       if (typeof item !== 'string') return [];
-      // Rozbijamy po popularnych separatorach list (kropki, pionowe kreski, gwiazdki, nowe linie, duze odstepy)
-      return item.split(/[•·\|\*\n]|\s{3,}/).map(p => p.trim()).filter(p => p.length > 2);
+      // Rozbijamy po popularnych separatorach list, dodajemy '-' oraz ','
+      return item.split(/[•·\|\*\n\-]|\s{3,}/).map(p => p.trim()).filter(p => p.length > 2);
     });
   }
   if (typeof items === 'string') {
-    return items.split(/[•·\|\*\n]|\s{3,}/).map(p => p.trim()).filter(p => p.length > 2);
+    return items.split(/[•·\|\*\n\-]|\s{3,}/).map(p => p.trim()).filter(p => p.length > 2);
   }
   return [];
 };
@@ -48,43 +48,17 @@ const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema
   
   // ✅ NOWY: Agresywna filtracja imion, które są nagłówkami sekcji
   if (fullName && /(obsługa|obsluga|umiejętności|umiejetnosci|język|jezyk|angielski|niemiecki|doświadczenie|doswiadczenie|wykształcenie|wyksztalcenie|elektronarzędzi|elektronarzedzi)/i.test(fullName)) {
-    console.warn('[SANITIZE] fullName zawiera nagłówek sekcji, zastępuję placeholderem:', fullName);
     fullName = 'Imię i Nazwisko';
   }
   
-  // ✅ NOWY: Headline nie może być długim zdaniem (prawdopodobnie z OCR summary)
-  if (headline && headline.split(' ').length > 6) {
-    console.warn('[SANITIZE] headline jest za długi, usuwam:', headline);
+  // ✅ Headline nie może być długim zdaniem (prawdopodobnie z OCR summary)
+  if (headline && headline.split(' ').length > 8) {
     headline = undefined;
   }
 
-  // ✅ NOWY: Headline nie może zawierać technicznych słów-kluczy
-  if (headline && /(MIG|MAG|TIG|WELDING|SPAWANIE|METAL|INERT|GAS|OBSŁUGA|ELEKTRONARZĘDZI)/i.test(headline)) {
-    console.warn('[SANITIZE] headline zawiera technikę/umiejętność, usuwam:', headline);
-    headline = undefined;
-  }
-  
-  // Agresywna filtracja naglowkow i smieci ocr dla Imienia i Nazwiska (Paranoid Mode)
-  if (fullName && fullName !== 'Imię i Nazwisko') {
-    fullName = stripContactInfo(fullName);
-    
-    if (fullName) {
-      const fnLower = fullName.toLowerCase();
-      const isHeader = SECTION_HEADERS_REGEX.test(fnLower);
-      const isTooLong = fullName.length > 80;
-      
-      if (isHeader || isTooLong) {
-        fullName = 'Imię i Nazwisko';
-      }
-    }
-  }
-
-  // Filtracja dla headline (stanowiska) - usuń telefon jeśli się przyplątał
+  // Filtracja dla headline (stanowiska) - usuń telefon/email jeśli się przyplątał
   if (headline) {
     headline = stripContactInfo(headline);
-    if (headline && (SECTION_HEADERS_REGEX.test(headline) || headline.length > 80)) {
-      headline = undefined;
-    }
   }
 
   return {
@@ -98,10 +72,10 @@ const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema
       location: sanitizeInlineText(candidate.contact.location),
       links: sanitizeStringList(candidate.contact.links, 6),
     },
-    skills: smartSplitList(candidate.skills).slice(0, 24),
+    skills: smartSplitList(candidate.skills).slice(0, 30),
     experience: (candidate.experience || [])
       .map((entry) => ({
-        company: sanitizeInlineText(entry.company) || 'Doswiadczenie zawodowe',
+        company: sanitizeInlineText(entry.company) || 'Doświadczenie zawodowe',
         role: sanitizeInlineText(entry.role) || 'Specjalista',
         startDate: sanitizeInlineText(entry.startDate),
         endDate: sanitizeInlineText(entry.endDate),
@@ -111,11 +85,11 @@ const sanitizeNormalizedCv = (candidate: NormalizedCvSchema): NormalizedCvSchema
   education: candidate.education
     .map((entry) => ({
       institution: sanitizeInlineText(entry.institution) || 'Edukacja',
-      degree: sanitizeInlineText(entry.degree) || 'Kierunek do uzupelnienia',
+      degree: sanitizeInlineText(entry.degree) || 'Kierunek / Stopień',
       endDate: sanitizeInlineText(entry.endDate),
     }))
     .filter((entry) => entry.institution || entry.degree),
-  certifications: sanitizeStringList(candidate.certifications, 10),
+  certifications: sanitizeStringList(candidate.certifications, 15),
   };
 };
 
@@ -155,7 +129,12 @@ const normalizeGeminiCv = (payload: Partial<NormalizedCvSchema>): NormalizedCvSc
       endDate: exp.endDate,
       bullets: exp.bullets || []
     })),
-    education: payload.education || [],
+    education: (payload.education || []).map(edu => ({
+      institution: edu.institution,
+      degree: edu.degree,
+      startDate: edu.startDate,
+      endDate: edu.endDate,
+    })),
     certifications: payload.certifications || [],
   });
 };
@@ -166,21 +145,38 @@ const extractNormalizedCvWithGemini = async (
   additionalContext = '',
 ) => {
     const apiKey = getApiKey();
-    const model = 'gemini-2.5-flash';
+    const model = 'gemini-2.0-flash'; // Korzystajmy z najstabilniejszego modelu flash
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    // Przygotuj prompt z instrukcją JSON
-    const schemaText = `Oto wymagany schemat JSON: 
-    {
-      fullName: string, 
-      headline: string, 
-      summary: string, 
-      contact: { email: string, phone: string, location: string, links: string[] },
-      skills: string[],
-      experience: Array<{ company: string, role: string, startDate: string, endDate: string, bullets: string[] }>,
-      education: Array<{ institution: string, degree: string, endDate: string }>,
-      certifications: string[]
-    }.`;
+    // Przygotuj prompt z instrukcją JSON i prośbą o uzupełnienia
+    const schemaText = `
+JESTEŚ ELITARNYM EKSPERTEM HR I SYSTEMÓW ATS. Twoim zadaniem jest transformacja surowych danych z CV (tekst/obraz) w ustrukturyzowany, PROFESJONALNY profil.
+
+### KRYTYCZNE ZASADY (PRZETWARZANIE):
+1. **Dokończ i Uzupełnij (AGRESYWNIE)**: To jest Twoje najważniejsze zadanie. Jeśli w CV są tylko krótkie hasła (np. "produkcja balustrad"), MUSISZ ROZWINĄĆ je w 4-6 profesjonalnych punktów (bullets). 
+   - Każdy punkt musi być rozbudowany (min. 12 słów).
+   - Używaj profesjonalnej terminologii (np. "Obsługa i konserwacja półautomatycznych systemów spawalniczych MIG/MAG", zamiast "Spawanie").
+   - Jeśli danych brakuje, WYMYŚL typowe, profesjonalne obowiązki dla tego stanowiska, aby CV wyglądało na bogate i eksperckie.
+2. **Korekta OCR**: Napraw błędy odczytu i scalaj rozbite słowa.
+3. **Podsumowanie**: Stwórz PROFESJONALNE podsumowanie zawodowe (summary) o długości min. 250-300 znaków, podkreślając ambicje i kluczowe kompetencje.
+4. **Headline**: Ustaw konkretną, chwytliwą rolę zawodową (np. "Ekspert Spawalnictwa i Montażu Konstrukcji").
+
+### SPECJALNE INSTRUKCJE OD UŻYTKOWNIKA (PRIORYTET):
+Gdy użytkownik podaje "Dodatkowe uwagi" lub "Kontekst" - MUSISZ je bezwzględnie zastosować i wpleść w całą treść CV.
+KONTEKST DODATKOWY: ${additionalContext || 'Brak szczególnych uwag.'}
+
+Wymagany schemat JSON: 
+{
+  fullName: string, 
+  headline: string, 
+  summary: string, 
+  contact: { email: string, phone: string, location: string, links: string[] },
+  skills: string[],
+  experience: Array<{ company: string, role: string, startDate: string, endDate: string, bullets: string[] }>,
+  education: Array<{ institution: string, degree: string, startDate: string, endDate: string }>,
+  certifications: string[]
+}
+`.trim();
 
     const res = await fetch(url, {
       method: 'POST',
@@ -193,7 +189,8 @@ const extractNormalizedCvWithGemini = async (
           ]
         }],
         generationConfig: {
-          responseMimeType: 'application/json'
+          responseMimeType: 'application/json',
+          temperature: 0.2 // Niska temperatura dla stabilności schematu, ale wystarczająca dla kreatywnych uzupełnień
         }
       })
     });
@@ -205,16 +202,6 @@ const extractNormalizedCvWithGemini = async (
 
     const parsed = safeJsonParse<Partial<NormalizedCvSchema>>(resultRaw);
     const normalized = normalizeGeminiCv(parsed);
-    const validation = validateNormalizedCvCandidate(normalized, fallbackText);
-
-    if (validation.valid) {
-      logPipeline('ai_normalization_success', {
-        structured_sections: 5,
-      });
-      return normalized;
-    }
-
-    console.warn('[AI] Model zwrocil dane, ale przeszly walidacji, mimo to ufamy wynikom:', validation.reasons);
     return normalized;
 };
 
@@ -229,7 +216,8 @@ export const extractNormalizedCvFromText = async (rawInput: string, additionalCo
   return await extractNormalizedCvWithGemini(
     [
       {
-        text: `Znormalizuj ponizsze dane kandydata do struktury CV. Zwracaj tylko JSON. Tekst: ${sanitizedText}\nKontekst: ${sanitizedContext}`,
+        text: `Znormalizuj, popraw i profesionalnie UZUPEŁNIJ (enrich) dane kandydata. Użyj kontekstu jeśli jest podany. 
+        Tekst z dokumentu: ${sanitizedText}\nKontekst dodatkowy: ${sanitizedContext}`,
       },
     ],
     joinSanitizedBlocks(sanitizedText, sanitizedContext),
@@ -258,17 +246,13 @@ export const extractNormalizedCvFromAsset = async (
     : asset.base64;
 
   const prompt = `
-Jesteś elitarnym ekspertem HR. Twoim zadaniem jest wyekstrahowanie danych z CV na załączonym DOKUMENCIE/OBRAZIE.
+Zanalizuj CV z załączonego dokumentu. 
+NAJWAŻNIEJSZE: 
+1. Wyciągnij dane (imię, kontakt, doświadczenie).
+2. Profesjonalnie ROZWIŃ (uzupełnij) punkty doświadczenia i podsumowanie, aby CV wyglądało na bogatsze i bardziej wartościowe dla rekrutera.
+3. Jeśli widzisz błędy w formatowaniu OCR (np. rozsypane litery), sklej je w poprawne słowa.
 
-KRYTYCZNE INSTRUKCJE:
-1. Czytaj dane BEZPOŚREDNIO z dokumentu. Na górze znajdź imię i nazwisko (zwykle największy tekst).
-   Jeśli widzisz rozdzielone litery (np. "Ł U K A S Z"), złącz je w "Łukasz". 
-2. Numer telefonu wyszukaj dokładnie (format +48 XXX XXX XXX).
-3. Email zwykle znajduje się blisko telefonu lub w stopce.
-4. Stanowisko (headline) to krótka fraza pod imieniem (np. "Spawacz / Ślusarz").
-   NIGDY nie używaj nazw umiejętności technicznych (MIG, TIG, WELDING) jako headline.
-
-Zwróć tylko czysty obiekt JSON zgodnie ze schematem.
+Kontekst kandydata: ${additionalContext}
 `.trim();
 
   return await extractNormalizedCvWithGemini(
@@ -276,7 +260,7 @@ Zwróć tylko czysty obiekt JSON zgodnie ze schematem.
       { inlineData: { data: cleanBase64, mimeType: asset.mimeType } },
       { text: prompt },
     ],
-    '', // ✅ Pusty fallbackText — niech AI pracuje tylko z obrazem (Vision mode)
+    '',
     additionalContext,
   );
 };

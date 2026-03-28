@@ -75,7 +75,7 @@ export const renderStructuredPdf = async (
   const displaySections = getStructuredCvDisplaySections(document);
   const atsKeywords = getStructuredCvAtsKeywords(document);
 
-  const sidebarWidth = 170;
+  const sidebarWidth = 180;
   const horizontalMargin = 35;
   const contentX = sidebarWidth + horizontalMargin;
   const contentWidth = 595.28 - contentX - horizontalMargin;
@@ -97,50 +97,61 @@ export const renderStructuredPdf = async (
   let cursorY = 780;
 
   // Header - Name and Title
-  page.drawText(fullName.toUpperCase(), { x: contentX, y: cursorY, size: 22, font: boldFont, color: colors.text });
-  cursorY -= 26;
-  page.drawText(title, { x: contentX, y: cursorY, size: 12, font: regularFont, color: colors.accent });
+  page.drawText(fullName.toUpperCase(), { x: contentX, y: cursorY, size: 24, font: boldFont, color: colors.text });
+  cursorY -= 20;
+  if (title) {
+    page.drawText(title.toUpperCase(), { x: contentX, y: cursorY, size: 9, font: boldFont, color: colors.accent });
+    cursorY -= 15;
+  }
+  
+  // Header border
+  page.drawLine({
+    start: { x: contentX, y: cursorY - 5 },
+    end: { x: contentX + contentWidth, y: cursorY - 5 },
+    thickness: 2,
+    color: colors.text
+  });
+  
   cursorY -= 45;
 
   // Sidebar Items
   let sidebarY = 780;
   
   // Contact info in sidebar
-  page.drawText("DANE KONTAKTOWE", { x: horizontalMargin, y: sidebarY, size: 8.5, font: boldFont, color: colors.accent });
-  sidebarY -= 14;
+  page.drawText("KONTAKT", { x: horizontalMargin, y: sidebarY, size: 9, font: boldFont, color: colors.accent });
+  sidebarY -= 18;
   
   const contactParts = contactLine.split(' | ');
   for (const part of contactParts) {
-    const lines = wrapText(part, sidebarWidth - 2 * horizontalMargin, regularFont, 8);
+    const lines = wrapText(part, sidebarWidth - 1.8 * horizontalMargin, regularFont, 8.5);
     for (const line of lines) {
       if (sidebarY < 40) break;
-      page.drawText(line, { x: horizontalMargin, y: sidebarY, size: 8, font: regularFont, color: colors.text });
-      sidebarY -= 10;
+      page.drawText(line, { x: horizontalMargin, y: sidebarY, size: 8.5, font: regularFont, color: colors.text });
+      sidebarY -= 12;
     }
-    sidebarY -= 2;
+    sidebarY -= 4;
   }
 
-  sidebarY -= 15;
+  sidebarY -= 20;
 
   // Skills in sidebar
   if (document.skills?.length) {
-    page.drawText("KOMPETENCJE", { x: horizontalMargin, y: sidebarY, size: 8.5, font: boldFont, color: colors.accent });
-    sidebarY -= 14;
+    page.drawText("KOMPETENCJE", { x: horizontalMargin, y: sidebarY, size: 9, font: boldFont, color: colors.accent });
+    sidebarY -= 18;
     for (const skill of document.skills) {
-      const lines = wrapText(skill, sidebarWidth - 2 * horizontalMargin - 10, regularFont, 8);
+      const lines = wrapText(skill, sidebarWidth - 1.8 * horizontalMargin - 10, regularFont, 8.5);
       for (const [index, line] of lines.entries()) {
         if (sidebarY < 30) break;
         const prefix = index === 0 ? '• ' : '  ';
-        page.drawText(`${prefix}${line}`, { x: horizontalMargin, y: sidebarY, size: 8, font: regularFont, color: colors.text });
-        sidebarY -= 10;
+        page.drawText(`${prefix}${line}`, { x: horizontalMargin, y: sidebarY, size: 8.5, font: regularFont, color: colors.text });
+        sidebarY -= 12;
       }
-      sidebarY -= 2;
+      sidebarY -= 3;
     }
   }
 
-  // Main Content - Sections (Summary, Experience, Education etc)
+  // Main Content - Sections
   for (const section of displaySections) {
-    // Check for space before section title
     if (cursorY < 120) {
       page = pdfDoc.addPage([595.28, 841.89]);
       drawLayout(page);
@@ -148,25 +159,30 @@ export const renderStructuredPdf = async (
     }
 
     const sectionTitle = section.title.toUpperCase();
-    page.drawText(sectionTitle, { x: contentX, y: cursorY, size: 10, font: boldFont, color: colors.accent });
+    page.drawText(sectionTitle, { x: contentX, y: cursorY, size: 11, font: boldFont, color: colors.secondaryText });
     page.drawLine({
-      start: { x: contentX, y: cursorY - 3 },
-      end: { x: contentX + contentWidth, y: cursorY - 3 },
-      thickness: 0.5,
+      start: { x: contentX, y: cursorY - 4 },
+      end: { x: contentX + contentWidth, y: cursorY - 4 },
+      thickness: 1,
       color: colors.border
     });
-    cursorY -= 20;
+    cursorY -= 24;
 
     for (const item of section.items) {
-      const isBullet = section.title.toLowerCase().includes('doświadczenie') && !item.includes(' | ') && !item.includes(' - ');
-      const fontSize = 9.5;
-      const indent = isBullet ? 12 : 0;
+      const isHeader = item.includes(' | ');
+      const isDate = !isHeader && (item.includes(' - ') || /^\w{3} \d{4}/.test(item));
+      const isBullet = !isHeader && !isDate && section.title.toLowerCase().includes('doświadczenie');
+      
+      const fontSize = isHeader ? 11 : 9.5;
+      const font = isHeader ? boldFont : regularFont;
+      const color = isDate ? colors.accent : colors.text;
+      const indent = isBullet ? 14 : 0;
       const maxWidth = contentWidth - indent;
       
-      const lines = wrapText(item, maxWidth, regularFont, fontSize);
+      const textToRender = isDate ? item.toUpperCase() : item;
+      const lines = wrapText(textToRender, maxWidth, font, fontSize);
       
-      // Simple overflow check for current section item
-      if (cursorY - (lines.length * 12) < 60) {
+      if (cursorY - (lines.length * 15) < 60) {
         page = pdfDoc.addPage([595.28, 841.89]);
         drawLayout(page);
         cursorY = 800;
@@ -174,12 +190,18 @@ export const renderStructuredPdf = async (
 
       for (const [index, line] of lines.entries()) {
         const prefix = (isBullet && index === 0) ? '• ' : '';
-        page.drawText(`${prefix}${line}`, { x: contentX + indent, y: cursorY, size: fontSize, font: regularFont, color: colors.text });
-        cursorY -= 12.5;
+        page.drawText(`${prefix}${line}`, { 
+          x: contentX + (isBullet && index > 0 ? 8 : indent), 
+          y: cursorY, 
+          size: fontSize, 
+          font: font, 
+          color: color 
+        });
+        cursorY -= 14.5;
       }
-      cursorY -= 6;
+      cursorY -= isHeader ? 2 : (isDate ? 6 : 8);
     }
-    cursorY -= 14;
+    cursorY -= 20;
   }
 
   // Hidden ATS layer
